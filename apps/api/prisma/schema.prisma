@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+}
+enum UserRole { ADMIN MANAGER FRONT_DESK HOUSEKEEPING MAINTENANCE }
+enum RoomStatus { CLEAN DIRTY IN_PROGRESS INSPECTION MAINTENANCE OUT_OF_ORDER }
+enum OccupancyStatus { VACANT OCCUPIED ARRIVAL DEPARTURE }
+enum TaskStatus { PENDING IN_PROGRESS COMPLETED VERIFIED CANCELLED }
+enum CleaningType { CHECKOUT STAYOVER FULL_SERVICE DEEP_CLEAN ARRIVAL_TOUCHUP }
+enum TicketStatus { OPEN IN_PROGRESS CLOSED }
+enum TicketPriority { LOW MEDIUM HIGH URGENT }
+enum NotificationType { TASK_ASSIGNED ROOM_CLEANED ROOM_INSPECTION MAINTENANCE_CREATED MAINTENANCE_UPDATED TICKET_ASSIGNED GENERAL }
+enum PhotoCategory { MAINTENANCE HOUSEKEEPING ROOM }
+enum AuditAction { CREATE UPDATE DELETE ASSIGN STATUS_CHANGE LOGIN }
+model Property {
+  id String @id @default(uuid())
+  name String
+  code String @unique
+  address String?
+  timezone String @default("America/Phoenix")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  rooms Room[]
+  memberships PropertyMembership[]
+  cleaningTasks CleaningTask[]
+  tickets MaintenanceTicket[]
+  notifications Notification[]
+  auditLogs AuditLog[]
+  photos Photo[]
+  refreshTokens RefreshToken[]
+  @@map("properties")
+}
+model User {
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  passwordHash String
+  phone String?
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+  memberships PropertyMembership[]
+  assignedCleanings CleaningTask[] @relation("Cleaner")
+  createdCleanings CleaningTask[] @relation("CleaningCreator")
+  verifiedCleanings CleaningTask[] @relation("CleaningVerifier")
+  reportedTickets MaintenanceTicket[] @relation("TicketReporter")
+  assignedTickets MaintenanceTicket[] @relation("TicketAssignee")
+  ticketEvents TicketEvent[]
+  roomEvents RoomStatusEvent[]
+  notifications Notification[]
+  auditLogs AuditLog[]
+  uploadedPhotos Photo[]
+  refreshTokens RefreshToken[]
+  @@map("users")
+}
+model PropertyMembership {
+  id String @id @default(uuid())
+  propertyId String
+  userId String
+  role UserRole
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  @@unique([propertyId, userId, role])
+  @@index([userId, isActive])
+  @@map("property_memberships")
+}
+model Room {
+  id String @id @default(uuid())
+  propertyId String
+  number String
+  floor Int
+  roomType String?
+  status RoomStatus @default(DIRTY)
+  occupancyStatus OccupancyStatus @default(VACANT)
+  isActive Boolean @default(true)
+  notes String?
+  version Int @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id])
+  cleaningTasks CleaningTask[]
+  tickets MaintenanceTicket[]
+  statusHistory RoomStatusEvent[]
+  photos Photo[]
+  @@unique([propertyId, number])
+  @@index([propertyId, status])
+  @@index([propertyId, floor])
+  @@map("rooms")
+}
+model CleaningTask {
+  id String @id @default(uuid())
+  propertyId String
+  roomId String
+  assignedToId String?
+  createdById String
+  verifiedById String?
+  cleaningType CleaningType
+  status TaskStatus @default(PENDING)
+  scheduledFor DateTime @db.Date
+  priority Int @default(0)
+  instructions String?
+  startedAt DateTime?
+  completedAt DateTime?
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id])
+  room Room @relation(fields: [roomId], references: [id])
+  assignedTo User? @relation("Cleaner", fields: [assignedToId], references: [id])
+  createdBy User @relation("CleaningCreator", fields: [createdById], references: [id])
+  verifiedBy User? @relation("CleaningVerifier", fields: [verifiedById], references: [id])
+  @@index([propertyId, scheduledFor, status])
+  @@index([assignedToId, scheduledFor])
+  @@index([roomId, scheduledFor])
+  @@map("cleaning_tasks")
+}
+model MaintenanceTicket {
+  id String @id @default(uuid())
+  propertyId String
+  roomId String?
+  title String
+  description String
+  priority TicketPriority @default(MEDIUM)
+  status TicketStatus @default(OPEN)
+  reportedById String
+  assignedToId String?
+  dueAt DateTime?
+  startedAt DateTime?
+  closedAt DateTime?
+  resolution String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id])
+  room Room? @relation(fields: [roomId], references: [id])
+  reportedBy User @relation("TicketReporter", fields: [reportedById], references: [id])
+  assignedTo User? @relation("TicketAssignee", fields: [assignedToId], references: [id])
+  events TicketEvent[]
+  photos Photo[]
+  @@index([propertyId, status, priority])
+  @@index([assignedToId, status])
+  @@index([roomId])
+  @@map("maintenance_tickets")
+}
+model TicketEvent {
+  id String @id @default(uuid())
+  ticketId String
+  actorId String
+  fromStatus TicketStatus?
+  toStatus TicketStatus?
+  comment String?
+  createdAt DateTime @default(now())
+  ticket MaintenanceTicket @relation(fields: [ticketId], references: [id])
+  actor User @relation(fields: [actorId], references: [id])
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}
+model RoomStatusEvent {
+  id String @id @default(uuid())
+  roomId String
+  actorId String?
+  fromStatus RoomStatus?
+  toStatus RoomStatus
+  reason String?
+  createdAt DateTime @default(now())
+  room Room @relation(fields: [roomId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
+  @@index([roomId, createdAt])
+  @@map("room_status_events")
+}
+model Photo {
+  id String @id @default(uuid())
+  propertyId String
+  roomId String?
+  ticketId String?
+  uploadedById String
+  category PhotoCategory
+  storageKey String @unique
+  contentType String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id])
+  room Room? @relation(fields: [roomId], references: [id])
+  ticket MaintenanceTicket? @relation(fields: [ticketId], references: [id])
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+  @@index([ticketId])
+  @@index([roomId])
+  @@map("photos")
+}
+model Notification {
+  id String @id @default(uuid())
+  propertyId String
+  userId String
+  type NotificationType
+  title String
+  message String
+  entityId String?
+  isRead Boolean @default(false)
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+model AuditLog {
+  id String @id @default(uuid())
+  propertyId String
+  actorId String?
+  action AuditAction
+  entityType String
+  entityId String
+  before Json?
+  after Json?
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
+  @@index([propertyId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+model RefreshToken {
+  id String @id @default(uuid())
+  userId String
+  propertyId String?
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  property Property? @relation(fields: [propertyId], references: [id])
+  @@index([userId, expiresAt])
+  @@map("refresh_tokens")
+}
