@@ -1,14 +1,29 @@
 # Lead Connect Clone — Project status
-Updated November 6, 2026, 4:28 PM Arizona.
+Updated November 6, 2026, 4:47 PM Arizona.
 
-Current phase: A verified where accessible; Phase B local development beginning.
+## Current phase
+Locally tested backend and React MVP completed. Cloud migration/verification blocked by executor PostgreSQL networking. No production rollout.
 
-Completed: GitHub source, Prisma 7 schema/client, initial local migration, authentication foundation, Render test API deployment, isolated Neon schema-only branch, deployment-target guard.
+## Completed locally
+- Property-scoped room inventory/history with versioned saves.
+- Employee creation/listing and membership activation/deactivation.
+- Housekeeping assignments, staff-only work lists, cleaning/inspection transitions, atomic normalized CSV import and persistent notes/history.
+- Maintenance assignment, priorities, status changes, required completion notes and ticket events.
+- Front desk checklist/inspection tasks, supervisor verification, handovers verified by a different incoming user.
+- Dashboard summaries, daily cleaning/per-employee reports and property audit endpoints.
+- React pages: Dashboard, Rooms, Housekeeping, Maintenance, Front Desk, Employees, Reports and Settings. Actual API integration; no permanent mock data.
+- Room colors, search/filtering, explicit Save buttons, success feedback, CSV preview, print styles and mobile CSS breakpoints.
+- Database tenant relationship constraints and second local migration. Current schema: 14 models / 11 enums.
 
-Verified live: commit b4f909d, Free/Oregon, auto-deploy off; health and ready return 200; TLS and test endpoints checked; runtime port 10000; public test schema contains zero tables.
+## Verification
+60 backend tests and 14 web tests passed. The web run included a jsdom UI workflow connected to the actual local API and PostgreSQL: login, room save, assignment, start/complete/verify, report and sign-out UI. Both migrations applied to a newly recreated disposable local database with no drift. Backend/web TypeScript builds and clean web npm ci passed. Both dependency audits: zero known vulnerabilities. Fixtures removed; zero users/properties left locally.
 
-Blocked: this executor cannot resolve/connect to PostgreSQL (EAI_AGAIN). Prisma migrate status and migration preflight failed before writes. No cloud migration or cloud fixture accounts have run. A nonexistent-account login returns a generic 500 because tables are absent.
+## Deployment
+Render lead-connect-api remains live at b4f909d, Free/Oregon, Node 24, port 10000, auto-deploy off. Health and ready returned 200. Saved URLs independently match render-test; TLS required. Ready checks database SELECT 1, not table installation. New source commits have NOT been deployed.
 
-Local tests: 40 passed, including 17 integration tests. Cloud access/refresh/logout tests pending migration.
+Neon render-test / leadconnect public schema has zero tables. Native pg failed EAI_AGAIN; Prisma migrate status and guarded preflight failed before writes. No cloud migration, cloud test account, or new cloud service was created. Cloud login currently returns generic 500 while schema is empty.
 
-Next: property/room/housekeeping/maintenance APIs and constraints, local tests, then a React client. Mobile remains planned. Google Drive stores documentation/backups, PostgreSQL stores operational data. No production or existing housekeeping changes.
+## Remaining
+Run guarded cloud migration from a verified computer/network; cloud disposable authentication tests; actual browser cookie/CORS/visual/accessibility/print QA; choose HTTPS same-site test domains; deploy/test new backend and frontend; monthly reports/PDF import/photo storage/live updates; Expo implementation and device tests; production hardening. Mobile is a documented handoff, not an implemented app.
+
+Existing hotel website, housekeeping portal, SynXis and Neon production remain untouched.

@@ -10,3 +10,12 @@ Migration: from apps/api, after npm ci and configuring ignored private .env, run
 Before real hotel data: enforce tenant relationship constraints and assignee membership; use restricted runtime DB role; add shared/account rate controls; improve refresh token-family/race handling; configure same-site browser domains and trusted proxy; validate TLS, monitoring, backups and recovery. No public registration.
 
 Frontend recommendation: a React/Vite static site on Render free hosting (https://render.com/docs/static-sites), with separately chosen same-site HTTPS custom subdomains for frontend/API. Existing main website need not be replaced. Do not relax cookie protection merely to work around unrelated test domains. Expo clients should use SecureStore (https://docs.expo.dev/versions/latest/sdk/securestore/). No services or domains have been created by this recommendation.
+
+## New local increment
+- Composite matching-property foreign keys now protect room/task/ticket/photo references and front desk inspection rooms.
+- All new operational mutations verify property-scoped membership/room IDs and write audit events in the same transaction. Staff cannot edit other assignees' work; verification requires a supervisor. Completed cleaning assignments are immutable with respect to reassignment.
+- Room saves include versions, imports are transactional, maintenance closure requires notes, incoming handovers cannot self-verify, and membership deactivation revokes refresh sessions.
+- API data responses are no-store. Frontend keeps access tokens in memory and coalesces refresh requests, validates operational CSVs, and uses explicit Save confirmations. No secret values are placed in client build variables.
+- Both local migrations and 60 backend / 14 web tests passed; actual browser cookie/CORS and all-page visual QA remain outstanding.
+- No new Render config, automatic deploy, cloud migration, cloud fixture account, DNS change, paid service or production modification occurred. Native database access in this executor remains blocked; follow the guarded manual workflow from NEXT_SESSION.md.
+- The new schema has 14 models / 11 enums. Review both migration files before a future isolated test deployment. The currently live backend is still b4f909d.
