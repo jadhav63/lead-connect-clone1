@@ -86,21 +86,23 @@ enum AuditAction {
 }
 
 model Property {
-  id            String               @id @default(uuid())
-  name          String
-  code          String               @unique
-  address       String?
-  timezone      String               @default("America/Phoenix")
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  rooms         Room[]
-  memberships   PropertyMembership[]
-  cleaningTasks CleaningTask[]
-  tickets       MaintenanceTicket[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
-  photos        Photo[]
-  refreshTokens RefreshToken[]
+  id             String               @id @default(uuid())
+  name           String
+  code           String               @unique
+  address        String?
+  timezone       String               @default("America/Phoenix")
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  rooms          Room[]
+  memberships    PropertyMembership[]
+  cleaningTasks  CleaningTask[]
+  tickets        MaintenanceTicket[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  photos         Photo[]
+  frontDeskTasks FrontDeskTask[]
+  handovers      ShiftHandover[]
+  refreshTokens  RefreshToken[]
 
   @@map("properties")
 }
@@ -126,6 +128,11 @@ model User {
   notifications     Notification[]
   auditLogs         AuditLog[]
   uploadedPhotos    Photo[]
+  frontDeskAssigned FrontDeskTask[]      @relation("FrontDeskAssignee")
+  frontDeskCreated  FrontDeskTask[]      @relation("FrontDeskCreator")
+  frontDeskVerified FrontDeskTask[]      @relation("FrontDeskVerifier")
+  handoversWritten  ShiftHandover[]      @relation("HandoverAuthor")
+  handoversVerified ShiftHandover[]      @relation("HandoverVerifier")
   refreshTokens     RefreshToken[]
 
   @@map("users")
@@ -164,8 +171,10 @@ model Room {
   tickets         MaintenanceTicket[]
   statusHistory   RoomStatusEvent[]
   photos          Photo[]
+  frontDeskTasks  FrontDeskTask[]
 
   @@unique([propertyId, number])
+  @@unique([propertyId, id])
   @@index([propertyId, status])
   @@index([propertyId, floor])
   @@map("rooms")
@@ -189,7 +198,7 @@ model CleaningTask {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   property     Property     @relation(fields: [propertyId], references: [id])
-  room         Room         @relation(fields: [roomId], references: [id])
+  room         Room         @relation(fields: [propertyId, roomId], references: [propertyId, id], onDelete: Restrict)
   assignedTo   User?        @relation("Cleaner", fields: [assignedToId], references: [id])
   createdBy    User         @relation("CleaningCreator", fields: [createdById], references: [id])
   verifiedBy   User?        @relation("CleaningVerifier", fields: [verifiedById], references: [id])
@@ -217,12 +226,13 @@ model MaintenanceTicket {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   property     Property       @relation(fields: [propertyId], references: [id])
-  room         Room?          @relation(fields: [roomId], references: [id])
+  room         Room?          @relation(fields: [propertyId, roomId], references: [propertyId, id], onDelete: Restrict)
   reportedBy   User           @relation("TicketReporter", fields: [reportedById], references: [id])
   assignedTo   User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
   events       TicketEvent[]
   photos       Photo[]
 
+  @@unique([propertyId, id])
   @@index([propertyId, status, priority])
   @@index([assignedToId, status])
   @@index([roomId])
@@ -271,8 +281,8 @@ model Photo {
   sizeBytes    Int
   createdAt    DateTime           @default(now())
   property     Property           @relation(fields: [propertyId], references: [id])
-  room         Room?              @relation(fields: [roomId], references: [id])
-  ticket       MaintenanceTicket? @relation(fields: [ticketId], references: [id])
+  room         Room?              @relation(fields: [propertyId, roomId], references: [propertyId, id], onDelete: Restrict)
+  ticket       MaintenanceTicket? @relation(fields: [propertyId, ticketId], references: [propertyId, id], onDelete: Restrict)
   uploadedBy   User               @relation(fields: [uploadedById], references: [id])
 
   @@index([ticketId])
@@ -329,4 +339,55 @@ model RefreshToken {
 
   @@index([userId, expiresAt])
   @@map("refresh_tokens")
+}
+
+enum FrontDeskTaskKind {
+  CHECKLIST
+  INSPECTION
+  OTHER
+}
+
+model FrontDeskTask {
+  id           String            @id @default(uuid())
+  propertyId   String
+  roomId       String?
+  title        String
+  kind         FrontDeskTaskKind @default(CHECKLIST)
+  shift        String
+  scheduledFor DateTime          @db.Date
+  assignedToId String?
+  createdById  String
+  verifiedById String?
+  status       TaskStatus        @default(PENDING)
+  notes        String?
+  completedAt  DateTime?
+  verifiedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  property     Property          @relation(fields: [propertyId], references: [id])
+  room         Room?             @relation(fields: [propertyId, roomId], references: [propertyId, id], onDelete: Restrict)
+  assignedTo   User?             @relation("FrontDeskAssignee", fields: [assignedToId], references: [id])
+  createdBy    User              @relation("FrontDeskCreator", fields: [createdById], references: [id])
+  verifiedBy   User?             @relation("FrontDeskVerifier", fields: [verifiedById], references: [id])
+
+  @@index([propertyId, scheduledFor, shift, status])
+  @@map("front_desk_tasks")
+}
+
+model ShiftHandover {
+  id           String    @id @default(uuid())
+  propertyId   String
+  authorId     String
+  shift        String
+  businessDate DateTime  @db.Date
+  notes        String
+  verifiedById String?
+  verifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  property     Property  @relation(fields: [propertyId], references: [id])
+  author       User      @relation("HandoverAuthor", fields: [authorId], references: [id])
+  verifiedBy   User?     @relation("HandoverVerifier", fields: [verifiedById], references: [id])
+
+  @@index([propertyId, businessDate, shift])
+  @@map("shift_handovers")
 }
