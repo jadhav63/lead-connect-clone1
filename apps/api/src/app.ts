@@ -26,7 +26,11 @@ const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ZodError) { res.status(400).json({ error: 'Invalid request', issues: error.issues }); return; }
   if (error instanceof HttpError) { res.status(error.status).json({ error: error.message }); return; }
   if (error?.code === 'P2002') { res.status(409).json({ error: 'Record already exists' }); return; }
-  console.error('Unhandled request error', error);
+  if (error?.code === 'P2034') { res.status(409).json({ error: 'Session or record changed; retry the request' }); return; }
+  if (error?.type === 'entity.parse.failed') { res.status(400).json({ error: 'Invalid JSON' }); return; }
+  if (error?.type === 'entity.too.large') { res.status(413).json({ error: 'Request too large' }); return; }
+  // Do not log driver errors, query parameters, connection URLs, or request bodies.
+  console.error('Unhandled request error');
   res.status(500).json({ error: 'Internal server error' });
 };
 app.use(errorHandler);

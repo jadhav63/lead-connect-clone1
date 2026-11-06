@@ -7,15 +7,27 @@ import { login, revokeRefresh, rotateRefresh } from '../services/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { prisma } from '../lib/db.js';
 const router = Router();
+// CORS alone does not reject state-changing requests from hostile browser origins.
+router.use((req, _res, next) => {
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const origin = req.get('Origin');
+    if ((origin && origin !== env.CORS_ORIGIN)
+      || (!origin && req.get('Sec-Fetch-Site') === 'cross-site')) {
+      return next(new HttpError(403, 'Untrusted request origin'));
+    }
+  }
+  next();
+});
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
-const credentials = z.object({ email: z.email(), password: z.string().min(1), propertyCode: z.string().min(1).max(64) });
-const refreshBody = z.object({ refreshToken: z.string().min(32).optional() });
+const credentials = z.object({ email: z.email().max(254), password: z.string().min(1).max(128), propertyCode: z.string().min(1).max(64) });
+const refreshValue = z.string().min(32).max(512);
+const refreshBody = z.object({ refreshToken: refreshValue.optional() });
 const cookieOptions = { httpOnly: true, secure: env.NODE_ENV === 'production', sameSite: 'strict' as const, path: '/api/auth', maxAge: env.REFRESH_TOKEN_DAYS * 86400000 };
 function tokenFromRequest(req: import('express').Request) {
   const body = refreshBody.parse(req.body ?? {});
   const token = body.refreshToken ?? req.cookies?.lead_refresh;
   if (!token) throw new HttpError(401, 'Invalid session');
-  return token as string;
+  return refreshValue.parse(token);
 }
 router.post('/login', limiter, async (req, res) => {
   const input = credentials.parse(req.body);

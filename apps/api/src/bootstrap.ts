@@ -17,4 +17,4 @@ async function main() {
   });
   console.log('Initial property and administrator created. Remove bootstrap credentials from .env.');
 }
-main().catch(e => { console.error(e); process.exitCode = 1; }).finally(async () => prisma.$disconnect());
+main().catch(() => { console.error('Bootstrap failed. Check configuration and database state without logging credentials.'); process.exitCode = 1; }).finally(async () => prisma.$disconnect());

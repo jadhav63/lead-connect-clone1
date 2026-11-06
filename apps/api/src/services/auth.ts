@@ -1,16 +1,19 @@
 import argon2 from 'argon2';
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../lib/db.js';
 import { HttpError } from '../lib/errors.js';
 import { accessToken, hashToken, newRefreshToken, refreshExpiry } from '../lib/tokens.js';
 const invalid = () => new HttpError(401, 'Invalid credentials');
+// A valid process-local dummy hash keeps unknown-user verification on the same
+// Argon2id path as real accounts without embedding a reusable password or hash.
+const dummyHash = argon2.hash(randomBytes(32), { type: argon2.argon2id });
 export async function login(email: string, password: string, propertyCode: string) {
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
     include: { memberships: { where: { isActive: true }, include: { property: true } } }
   });
   // Always perform a password verification to limit account-enumeration timing differences.
-  const dummyHash = '$argon2id$v=19$m=65536,t=3,p=4$MDEyMzQ1Njc4OWFiY2RlZg$Q3ezDq5mX7RmGZJ5CN4uGvrrNOr0FQFAb5BwhYrq+Ok';
-  const valid = await argon2.verify(user?.passwordHash ?? dummyHash, password).catch(() => false);
+  const valid = await argon2.verify(user?.passwordHash ?? await dummyHash, password).catch(() => false);
   if (!user || !valid || !user.isActive || user.deletedAt) throw invalid();
   const membership = user.memberships.find(m => m.property.code === propertyCode);
   if (!membership) throw invalid();

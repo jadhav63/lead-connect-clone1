@@ -8,7 +8,7 @@ Hotel operations application (development in progress).
 
 ## Status
 
-Source scaffold only. This has not been deployed or verified for production use. Do not store real guest or employee data until security and integration testing are completed.
+Backend foundation with a dependency lockfile, initial migration, and local validation tests. This has not been deployed or verified for production use. Do not store real guest or employee data until security and integration testing are completed.
 
 ## Project files
 
