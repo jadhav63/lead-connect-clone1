@@ -4,7 +4,10 @@ Hotel operations application (development in progress).
 
 ## Current contents
 
-- `apps/api`: Node.js / Express / TypeScript API with Prisma schema and authentication foundation.
+- `apps/api`: Node.js / Express / TypeScript API, property-scoped operations and Prisma migrations.
+- `apps/web`: React/Vite dashboard connected to the actual API, locally verified.
+- `apps/mobile`: precise Expo implementation handoff; mobile app not yet implemented.
+- `docs/project-management`: resumable status, architecture, feature and deployment logs.
 
 ## Status
 
@@ -17,3 +20,7 @@ Project management files and backups are kept in the existing Google Drive `Lead
 ## Local setup
 
 See `apps/api/README.md` for API setup and environment variable instructions. Never commit `.env` or credentials.
+
+## Latest local verification
+
+60 backend tests and 14 web tests passed, including a React-to-real-local-API workflow. Both migrations applied to fresh disposable PostgreSQL 18.3 without schema drift. Neon test migrations remain blocked by executor PostgreSQL DNS/network access. Render still runs b4f909d; do not assume the new operations are cloud-deployed.
