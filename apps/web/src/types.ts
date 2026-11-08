@@ -25,6 +25,7 @@ export type Task = {
   status: string;
   scheduledFor: string;
   completedAt: string | null;
+  instructions?: string | null;
 };
 export const roomStatuses = [
   "CLEAN",

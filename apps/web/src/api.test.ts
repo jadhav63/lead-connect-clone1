@@ -74,3 +74,16 @@ it("handles a proxy HTML error without showing a JSON parser error", async () =>
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 502, ok: false, json: async () => { throw new SyntaxError("Unexpected token <"); } }));
   await expect(login("fixture@example.test", fixturePassword, "FICTIONAL")).rejects.toThrow("unreadable response");
 });
+it("reports a refresh outage without misreporting an expired session and recovers on retry", async () => {
+  const fetcher = vi.fn().mockResolvedValueOnce(response(503, {})).mockResolvedValueOnce(response(200, { accessToken: 'recovered' })).mockResolvedValueOnce(response(200, []));
+  vi.stubGlobal('fetch', fetcher);
+  await expect(api('/rooms')).rejects.toThrow('temporarily unavailable');
+  await expect(api('/rooms')).resolves.toEqual([]);
+});
+it('coordinates refresh through a browser-wide lock when supported', async () => {
+  const lock = vi.fn(async (_name, work) => work());
+  vi.stubGlobal('navigator', { locks: { request: lock } });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response(200, { accessToken: 'disposable' })).mockResolvedValueOnce(response(200, [])));
+  await api('/rooms');
+  expect(lock).toHaveBeenCalledWith('lead-connect-session', expect.any(Function));
+});

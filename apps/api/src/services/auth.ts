@@ -68,3 +68,17 @@ export async function revokeRefresh(raw: string) {
     where: { tokenHash: hashToken(raw), revokedAt: null }, data: { revokedAt: new Date() }
   });
 }
+
+export async function changePassword(userId: string, propertyId: string, currentPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user?.isActive || user.deletedAt || !await argon2.verify(user.passwordHash, currentPassword).catch(() => false))
+    throw new HttpError(401, 'Current password is incorrect');
+  if (currentPassword === newPassword) throw new HttpError(400, 'Choose a different password');
+  const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+  await prisma.$transaction(async tx => {
+    const updated = await tx.user.updateMany({ where: { id: userId, passwordHash: user.passwordHash, isActive: true, deletedAt: null }, data: { passwordHash } });
+    if (updated.count !== 1) throw new HttpError(409, 'Account changed; sign in again');
+    await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await tx.auditLog.create({ data: { propertyId, actorId: userId, action: 'UPDATE', entityType: 'UserPassword', entityId: userId } });
+  });
+}

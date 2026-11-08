@@ -9,6 +9,16 @@ export class DatabaseConfigurationError extends Error {
   }
 }
 
+export function assertProductionTarget(config: PoolConfig, expected: { host?: string; database?: string; user?: string }) {
+  if (!expected.host || expected.host === STAGING_DATABASE_HOST
+      || expected.host.includes('ep-old-truth-aror3gey') || !expected.host.endsWith('.neon.tech')
+      || !expected.host.includes('-pooler.') || expected.database !== 'leadconnect_production'
+      || expected.user !== 'leadconnect_app' || config.host !== expected.host
+      || config.database !== expected.database || config.user !== expected.user
+      || typeof config.ssl !== 'object' || config.ssl?.rejectUnauthorized !== true)
+    throw new DatabaseConfigurationError('PRODUCTION_TARGET_MISMATCH');
+}
+
 /** Parse once; never pass URL parameters back to pg where they can override TLS. */
 export function databaseConfiguration(raw: string, production: boolean, staging: boolean) {
   const refuse = (reason: string): never => { throw new DatabaseConfigurationError(reason); };

@@ -535,3 +535,17 @@ describe("property-scoped operational workflows", () => {
     expect((await api("otherCleaner").get("/rooms")).status).toBe(401);
   });
 });
+
+it('returns a failed inspection for rework only with a supervisor reason and preserves the original elapsed-time start', async () => {
+  const testRoom = await prisma.room.create({ data: { propertyId: properties[0], number: 'REWORK', floor: 1, status: 'INSPECTION' } });
+  const startedAt = new Date('2026-11-06T08:00:00Z');
+  const task = await prisma.cleaningTask.create({ data: { propertyId: properties[0], roomId: testRoom.id, createdById: people.manager, assignedToId: people.cleaner, cleaningType: 'CHECKOUT', scheduledFor: new Date(day), status: 'COMPLETED', startedAt, completedAt: new Date('2026-11-06T08:30:00Z') } });
+  expect((await api('cleaner').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS', reworkReason: 'Not permitted' })).status).toBe(403);
+  expect((await api('manager').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS' })).status).toBe(400);
+  const returned = await api('manager').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS', reworkReason: 'Recheck bathroom fixtures' });
+  expect(returned.status).toBe(200); expect(returned.body.completedAt).toBeNull(); expect(returned.body.startedAt).toBe(startedAt.toISOString()); expect(returned.body.instructions).toContain('Recheck bathroom fixtures');
+  expect(await prisma.notification.count({ where: { userId: people.cleaner, entityId: task.id, type: 'ROOM_INSPECTION' } })).toBe(1);
+  expect((await api('cleaner').patch('/housekeeping/'+task.id, { status: 'COMPLETED' })).status).toBe(200);
+  expect((await api('manager').patch('/housekeeping/'+task.id, { status: 'VERIFIED' })).status).toBe(200);
+  expect((await prisma.room.findUniqueOrThrow({ where: { id: testRoom.id } })).status).toBe('CLEAN');
+});

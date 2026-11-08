@@ -20,6 +20,11 @@ describe('production configuration', () => {
   it('rejects short signing secrets', () => {
     expect(environmentSchema.safeParse({ ...config, JWT_ACCESS_SECRET: randomBytes(8).toString('hex') }).success).toBe(false);
   });
+  it('requires an independently configured production target and first-party session delivery', () => {
+    expect(environmentSchema.safeParse({ ...config, APP_ENV: 'production' }).success).toBe(false);
+    expect(environmentSchema.safeParse({ ...config, APP_ENV: 'production', WEB_DIST_PATH: '../web/dist', EXPECTED_DATABASE_HOST: 'confirmed.example', EXPECTED_DATABASE_NAME: 'leadconnect_production', EXPECTED_DATABASE_USER: 'leadconnect_app' }).success).toBe(true);
+    expect(environmentSchema.safeParse({ ...config, NODE_ENV: 'test', AUTH_COOKIE_SAME_SITE: 'none' }).success).toBe(false);
+  });
 });
 
 describe('reverse proxy trust', () => {

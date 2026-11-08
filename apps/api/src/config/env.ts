@@ -7,8 +7,22 @@ export const environmentSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(48),
   ACCESS_TOKEN_TTL: z.literal('15m').default('15m'),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().min(1).max(30).default(7),
-  CORS_ORIGIN: z.string().url(),
+  CORS_ORIGIN: z.string().url().refine(value => new URL(value).origin === value, 'Use an exact origin without a path or trailing slash'),
+  WEB_DIST_PATH: z.string().min(1).optional(),
+  AUTH_COOKIE_SAME_SITE: z.enum(['strict', 'none']).default('strict'),
+  APP_ENV: z.enum(['local', 'staging', 'production']).default('local'),
+  EXPECTED_DATABASE_HOST: z.string().optional(),
+  EXPECTED_DATABASE_NAME: z.string().optional(),
+  EXPECTED_DATABASE_USER: z.string().optional(),
 }).superRefine((value, context) => {
+  if (value.APP_ENV === 'production' && (value.NODE_ENV !== 'production' || !value.WEB_DIST_PATH
+      || !value.EXPECTED_DATABASE_HOST || !value.EXPECTED_DATABASE_NAME || !value.EXPECTED_DATABASE_USER
+      || value.AUTH_COOKIE_SAME_SITE !== 'strict')) {
+    context.addIssue({ code: 'custom', path: ['APP_ENV'], message: 'Production requires verified database identity and same-origin secure browser delivery' });
+  }
+  if (value.AUTH_COOKIE_SAME_SITE === 'none' && value.NODE_ENV !== 'production') {
+    context.addIssue({ code: 'custom', path: ['AUTH_COOKIE_SAME_SITE'], message: 'Cross-site cookies require secure HTTPS deployment' });
+  }
   if (value.NODE_ENV === 'production') {
     const mode = new URL(value.DATABASE_URL).searchParams.get('sslmode');
     if (mode !== 'verify-full' && mode !== 'require') {

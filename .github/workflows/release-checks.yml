@@ -1,0 +1,63 @@
+name: Release candidate checks
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-disposable-only
+          POSTGRES_DB: leadconnect_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci-disposable-only@127.0.0.1:5432/leadconnect_test
+      NODE_ENV: development
+      APP_ENV: local
+      CORS_ORIGIN: http://127.0.0.1:38507
+      PORT: "38507"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Generate ephemeral test signing key
+        run: node -e 'require("fs").appendFileSync(process.env.GITHUB_ENV,"JWT_ACCESS_SECRET="+require("crypto").randomBytes(48).toString("hex")+"\n")'
+      - run: npm ci --prefix apps/api --include=dev && npm ci --prefix apps/web
+      - name: Test API on disposable PostgreSQL 18
+        working-directory: apps/api
+        run: |
+          node --input-type=module -e 'import {assertTestDatabase} from "./scripts/test-database.mjs";assertTestDatabase(process.env.DATABASE_URL)'
+          npx prisma migrate deploy
+          npm run build
+          npm test
+          npx prisma migrate status
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+          npm audit --omit=dev
+      - name: Test and build staff frontend
+        working-directory: apps/web
+        run: npm test && VITE_APP_ENV=production VITE_API_BASE= npm run build && npm audit --omit=dev
+      - name: Browser acceptance using local synthetic data only
+        run: |
+          export LOCAL_UI_FIXTURE_FILE=/tmp/lead-connect-ci-fixture.json
+          cd apps/api
+          node scripts/local-web-fixture.mjs
+          WEB_DIST_PATH=../web/dist node dist/server.js > /tmp/lead-connect-ci-api.log 2>&1 &
+          api_pid=$!
+          api_dir="$PWD"
+          trap 'kill "$api_pid" 2>/dev/null || true; node "$api_dir/scripts/local-web-fixture.mjs" --cleanup' EXIT
+          for n in {1..40}; do curl -fsS http://127.0.0.1:38507/api/ready >/dev/null && break || sleep 1; done
+          cd ../web
+          npx playwright install --with-deps chromium
+          npm run test:browser
+          cd ../api
+      # No deployment credentials, uploads, production targets or automatic deploys.

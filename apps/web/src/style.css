@@ -65,7 +65,7 @@ textarea {
 small {
   font-size: 12px;
   display: block;
-  color: #6a7786;
+  color: #536477;
   line-height: 1.6;
 }
 h1 {
@@ -98,8 +98,10 @@ h3 {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 .brand {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -138,6 +140,9 @@ h3 {
   margin-top: 22px;
   display: grid;
   gap: 5px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .nav {
   background: transparent;
@@ -156,6 +161,7 @@ h3 {
   border-left: 3px solid #9fc9e4;
 }
 .profile {
+  flex-shrink: 0;
   margin-top: auto;
   border-top: 1px solid #3b5064;
   padding-top: 20px;
@@ -199,7 +205,7 @@ h3 {
   color: #586979;
 }
 .section-intro {
-  color: #667585;
+  color: #536477;
   margin: 0 0 22px;
 }
 .stats {
@@ -244,7 +250,7 @@ h3 {
   font-weight: 600;
 }
 .muted {
-  color: #68798a;
+  color: #536477;
   font-size: 13px;
 }
 .toolbar {
@@ -463,13 +469,13 @@ thead th {
 .empty {
   padding: 50px 20px;
   text-align: center;
-  color: #667b8b;
+  color: #536477;
   border: 1px dashed #c9d4de;
   border-radius: 6px;
 }
 .workspace-footer {
   font-size: 11px;
-  color: #8a98a5;
+  color: #586979;
   margin-top: 40px;
   padding-top: 16px;
   border-top: 1px solid #dce2e8;
@@ -561,6 +567,7 @@ thead th {
   }
   .sidebar nav {
     display: flex;
+    flex: initial;
     overflow: auto;
     margin-top: 12px;
   }

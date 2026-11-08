@@ -1,0 +1,177 @@
+import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync } from 'node:fs';
+const f = JSON.parse(readFileSync(process.env.LOCAL_UI_FIXTURE_FILE, 'utf8'));
+async function signIn(page, email = f.email, password = f.password) {
+  await page.goto('/');
+  await page.getByLabel('Property code', { exact: true }).fill(f.code);
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  // Secrets are supplied from a private local fixture; traces and input screenshots are disabled.
+  await page.getByLabel('Password', { exact: true }).fill(password).catch(() => { throw new Error('Password field unavailable'); });
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+  await expect(page.getByText('Loading dashboard…')).toBeHidden();
+}
+async function signOut(page) {
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+}
+async function go(page, label) {
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('button', { name: label, exact: true }).click();
+  await expect(page.getByRole('heading', { name: label, exact: true, level: 1 })).toBeVisible();
+  await expect(page.getByText(`Loading ${label.toLowerCase()}…`)).toBeHidden();
+}
+test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) await page.screenshot({path: '/tmp/lead-connect-browser-failure.png'}).catch(() => {}); });
+test('manager, housekeeper, maintenance and front desk complete the daily workflow in Chromium', async ({ page }) => {
+  await signIn(page);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await go(page, 'Rooms');
+  await expect(page.getByLabel('Room 901 status')).toBeVisible();
+  await go(page, 'Housekeeping');
+  await page.getByLabel('Assign room 901').selectOption(f.cleanerId);
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+  await signOut(page);
+  await signIn(page, f.cleanerEmail, f.cleanerPassword);
+  await go(page, 'Housekeeping');
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await expect(page.getByText('Completed', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Verify clean', exact: true })).toHaveCount(0);
+  await signOut(page);
+  await signIn(page);
+  await go(page, 'Housekeeping');
+  await page.getByLabel('Inspection rework for room 901').fill('Recheck bathroom fixtures');
+  await page.getByRole('button', { name: 'Return for cleaning' }).click();
+  await expect(page.getByText('In progress', { exact: true })).toBeVisible();
+  await signOut(page);
+  await signIn(page, f.cleanerEmail, f.cleanerPassword);
+  await go(page, 'Housekeeping');
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await signOut(page);
+  await signIn(page);
+  await go(page, 'Housekeeping');
+  await page.getByRole('button', { name: 'Verify clean', exact: true }).click();
+  await expect(page.getByText('Verified', { exact: true })).toBeVisible();
+  console.log('Browser acceptance: opening maintenance');
+  await go(page, 'Maintenance');
+  await page.getByText('Create maintenance ticket', { exact: true }).click();
+  await page.getByLabel(/^Issue/).fill('Local acceptance lamp');
+  await page.getByLabel(/^Details/).fill('Disposable local workflow');
+  console.log('Browser acceptance: assigning maintenance');
+  await page.getByLabel('Assign maintenance employee', { exact: true }).selectOption(f.technicianId);
+  console.log('Browser acceptance: creating ticket');
+  await page.getByRole('button', { name: 'Create ticket' }).click();
+  await expect(page.getByRole('heading', { name: 'Local acceptance lamp' })).toBeVisible();
+  await signOut(page);
+  await signIn(page, f.technicianEmail, f.technicianPassword);
+  console.log('Browser acceptance: opening maintenance');
+  await go(page, 'Maintenance');
+  await page.getByRole('button', { name: 'Start work' }).click();
+  await page.getByText('Complete repair', { exact: true }).click();
+  await page.getByLabel(/^Completion notes/).fill('Repaired and verified in disposable test.');
+  await page.getByRole('button', { name: 'Close ticket' }).click();
+  await expect(page.getByText('Resolution:', { exact: true })).toBeVisible();
+  await signOut(page);
+  await signIn(page);
+  console.log('Browser acceptance: opening front desk');
+  await go(page, 'Front Desk');
+  await page.getByText('Add checklist or inspection', { exact: true }).click();
+  await page.getByLabel(/^Task/).fill('Local shift checklist');
+  await page.getByLabel(/^Type/).selectOption('CHECKLIST');
+  await page.getByLabel(/^Shift/).first().selectOption('A');
+  await page.getByLabel('Employee', { exact: true }).selectOption(f.frontDeskId);
+  await page.getByRole('button', { name: 'Add task' }).click();
+  await expect(page.getByText('Local shift checklist', { exact: true })).toBeVisible();
+  await signOut(page);
+  await signIn(page, f.frontDeskEmail, f.frontDeskPassword);
+  console.log('Browser acceptance: opening front desk');
+  await go(page, 'Front Desk');
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.getByRole('button', { name: 'Complete', exact: true }).click();
+  await page.getByText('Write shift handover', { exact: true }).click();
+  await page.getByLabel(/^Handover notes/).fill('Local incoming shift confirmation.');
+  await page.getByLabel('Outgoing shift', { exact: true }).selectOption('A');
+  await page.getByRole('button', { name: 'Save handover' }).click();
+  await expect(page.getByText('Local incoming shift confirmation.', { exact: true })).toBeVisible();
+  await signOut(page);
+  await signIn(page);
+  console.log('Browser acceptance: opening front desk');
+  await go(page, 'Front Desk');
+  await page.getByRole('button', { name: 'Verify', exact: true }).click();
+  await page.getByRole('button', { name: 'Verify incoming shift' }).click();
+  await go(page, 'Notifications');
+  await expect(page.getByText('Room ready for inspection', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Mark read', exact: true }).first().click();
+  await go(page, 'Activity');
+  await expect(page.getByText('Recent property activity')).toBeVisible();
+  console.log('Browser acceptance: opening reports');
+  await go(page, 'Reports');
+  await expect(page.getByText('901', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Monthly report' }).click();
+  await expect(page.getByText('Fictional Housekeeper', { exact: true })).toBeVisible();
+});
+test('desktop, tablet and phone layouts, keyboard access, print and outage recovery', async ({ page }) => {
+  await signIn(page);
+  const prepared = await page.evaluate(async ({ cleanerId }) => {
+    const session = await fetch('/api/auth/refresh', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    if (!session.ok) throw new Error('Print fixture session unavailable');
+    const access = (await session.json()).accessToken;
+    const headers = { authorization: 'Bearer ' + access, 'content-type': 'application/json' };
+    const rooms = await (await fetch('/api/rooms', { headers })).json();
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Phoenix' }).format(new Date());
+    let created = 0;
+    for (const room of rooms.filter(room => room.number !== '901')) {
+      const response = await fetch('/api/housekeeping', { method: 'POST', headers, body: JSON.stringify({roomId: room.id, assignedToId: cleanerId, cleaningType: 'CHECKOUT', scheduledFor: date}) });
+      if (response.status !== 201) throw new Error('Print assignment fixture failed');
+      created += 1;
+    }
+    return created;
+  }, { cleanerId: f.cleanerId });
+  expect(prepared).toBe(59);
+  for (const width of [1440, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await go(page, 'Dashboard');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    expect(accessibility.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) }))).toEqual([]);
+  }
+  await go(page, 'Housekeeping');
+  await expect(page.locator('tbody tr')).toHaveCount(60);
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByRole('navigation')).toBeHidden();
+  await expect(page.getByText(/Housekeeping board/)).toBeVisible();
+  await page.pdf({ path: '/tmp/lead-connect-housekeeping-print.pdf', format: 'A4', printBackground: true });
+  await page.emulateMedia({ media: 'screen' });
+  await page.context().setOffline(true);
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Cannot reach the server');
+  await page.context().setOffline(false);
+  await page.getByRole('button', { name: 'Retry', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  const secondTab = await page.context().newPage();
+  await secondTab.goto('/');
+  await Promise.all([page.reload(), secondTab.reload()]);
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(secondTab.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await secondTab.close();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to workspace' })).toBeFocused();
+  await signOut(page);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
+});
+
+test('employee can change a password and sign in again in the browser', async ({ page }) => {
+  await signIn(page, f.cleanerEmail, f.cleanerPassword);
+  await go(page, 'Account');
+  const changed = crypto.randomUUID() + crypto.randomUUID();
+  await page.getByLabel('Current password', { exact: true }).fill(f.cleanerPassword).catch(() => { throw new Error('Password field unavailable'); });
+  await page.getByLabel('New password', { exact: true }).fill(changed).catch(() => { throw new Error('Password field unavailable'); });
+  await page.getByLabel('Confirm new password', { exact: true }).fill(changed).catch(() => { throw new Error('Password field unavailable'); });
+  await page.getByRole('button', { name: 'Change password', exact: true }).click();
+  await expect(page.getByText('Password changed. Sign in with your new password.')).toBeVisible();
+  await signIn(page, f.cleanerEmail, changed);
+  await signOut(page);
+});

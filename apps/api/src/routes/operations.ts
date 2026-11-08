@@ -459,6 +459,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
       assignedToId: id.nullable().optional(),
       status: z.enum(statuses).optional(),
       instructions: z.string().max(2000).optional(),
+      reworkReason: z.string().trim().min(1).max(1000).optional(),
     })
     .strict()
     .parse(req.body);
@@ -486,11 +487,15 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         "HOUSEKEEPING",
       ]);
       const taskRoom = await room(tx, auth(req).propertyId, task.roomId);
+      const rework = task.status === "COMPLETED" && data.status === "IN_PROGRESS";
+      if (data.reworkReason !== undefined && !rework) throw new HttpError(400, "Rework reason requires a completed inspection");
+      if (rework && !supervisor) throw new HttpError(403, "Supervisor required");
+      if (rework && !data.reworkReason) throw new HttpError(400, "Inspection rework reason required");
       if (data.status) {
         const allowed: Record<string, string[]> = {
           PENDING: ["IN_PROGRESS", "CANCELLED"],
           IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-          COMPLETED: ["VERIFIED"],
+          COMPLETED: ["VERIFIED", "IN_PROGRESS"],
           VERIFIED: [],
           CANCELLED: [],
         };
@@ -512,11 +517,14 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         if (data.status === "CANCELLED" && task.status === "IN_PROGRESS")
           await roomState(tx, req, task.roomId, "DIRTY");
       }
+      const { reworkReason, ...changes } = data;
       const updated = await tx.cleaningTask.update({
         where: { id: taskId },
         data: {
-          ...data,
-          ...(data.status === "IN_PROGRESS" ? { startedAt: new Date() } : {}),
+          ...changes,
+          ...(data.status === "IN_PROGRESS" ? { startedAt: task.startedAt ?? new Date() } : {}),
+          ...(rework ? { completedAt: null, verifiedAt: null, verifiedById: null,
+            instructions: [task.instructions, `Inspection rework: ${reworkReason}`].filter(Boolean).join('\n').slice(-2000) } : {}),
           ...(data.status === "COMPLETED" ? { completedAt: new Date() } : {}),
           ...(data.status === "VERIFIED"
             ? { verifiedAt: new Date(), verifiedById: auth(req).userId }
@@ -540,6 +548,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
           `Room ${taskRoom.number} was marked cleaned and needs inspection.`,
           taskId,
         );
+      if (rework) await notifyUsers(tx, auth(req).propertyId, [task.assignedToId], "ROOM_INSPECTION", "Room needs another cleaning pass", `Room ${taskRoom.number} was returned after inspection. Review the room instructions.`, taskId);
       if (data.assignedToId !== undefined && data.assignedToId !== task.assignedToId && data.assignedToId)
         await notifyUsers(tx, auth(req).propertyId, [data.assignedToId], "TASK_ASSIGNED", "Cleaning assignment", "A cleaning task was assigned to you.", taskId);
       return updated;

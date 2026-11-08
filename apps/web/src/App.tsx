@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { api, login, logout } from "./api";
+import { api, login, logout, forgetSession } from "./api";
 import { parseRoomCSV } from "./csv";
 import {
   type Employee,
@@ -209,6 +209,7 @@ function FormPanel({
               {f.options ? (
                 <select
                   name={f.name}
+                  aria-label={f.label}
                   defaultValue={f.value ?? ""}
                   required={f.required}
                 >
@@ -222,6 +223,7 @@ function FormPanel({
               ) : f.type === "textarea" ? (
                 <textarea
                   name={f.name}
+                  aria-label={f.label}
                   required={f.required}
                   maxLength={2000}
                   defaultValue={f.value}
@@ -229,6 +231,7 @@ function FormPanel({
               ) : (
                 <input
                   name={f.name}
+                  aria-label={f.label}
                   type={f.type ?? "text"}
                   required={f.required}
                   defaultValue={f.value}
@@ -260,12 +263,16 @@ function AssignmentRow({
   busy: boolean;
 }) {
   const [assigned, setAssigned] = useState(task.assignedToId ?? "");
+  const [reworkReason, setReworkReason] = useState("");
   const [saved, setSaved] = useState(false);
   const terminal = ["COMPLETED", "VERIFIED", "CANCELLED"].includes(task.status);
   return (
     <tr>
       <th scope="row">{task.room.number}</th>
-      <td>{label(task.cleaningType)}</td>
+      <td>{label(task.cleaningType)}
+        {task.instructions && <small className="preserve-lines">{task.instructions}</small>}
+        {task.room.notes && <small className="preserve-lines">Room note: {task.room.notes}</small>}
+      </td>
       <td>
         {canAssign && <span className="print-only">{task.assignedTo?.name ?? "Unassigned"}</span>}
         {canAssign ? (
@@ -347,6 +354,13 @@ function AssignmentRow({
               Verify clean
             </button>
           )}
+          {task.status === "COMPLETED" && canAssign && <form className="screen-only" onSubmit={async e => {
+            e.preventDefault();
+            await run("/housekeeping/" + task.id, "PATCH", { status: "IN_PROGRESS", reworkReason });
+          }}>
+            <label className="control">Inspection rework for room {task.room.number}<input value={reworkReason} onChange={e => setReworkReason(e.target.value)} required maxLength={1000} /></label>
+            <button className="secondary" disabled={busy || !reworkReason.trim()}>Return for cleaning</button>
+          </form>}
           {canAssign && ["PENDING", "IN_PROGRESS"].includes(task.status) && (
             <button
               disabled={busy}
@@ -487,7 +501,7 @@ export default function App() {
           <span className="brand-mark">LC</span>
           <h1>Lead Connect</h1>
           <p>Hotel operations, connected.</p>
-          <span className="test-label">Separate test project</span>
+          <span className="test-label">{import.meta.env.VITE_APP_ENV === "production" ? "Hotel staff access" : "Separate test project"}</span>
         </div>
         <form onSubmit={signIn} className="login-form">
           <h2>Sign in to your property</h2>
@@ -515,8 +529,9 @@ export default function App() {
               {error}
             </p>
           )}
+          {success && <p role="status" className="success">{success}</p>}
           <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <small>No public registration. No live hotel data.</small>
+          <small>{import.meta.env.VITE_APP_ENV === "production" ? "Authorized hotel employees only." : "No public registration. No live hotel data."}</small>
         </form>
       </main>
     );
@@ -528,6 +543,7 @@ export default function App() {
     "Notifications",
     ...(desk ? ["Front Desk", "Employees"] : []),
     ...(manager ? ["Reports", "Activity", "Settings"] : []),
+    "Account",
   ];
   const filtered = rooms.filter(
     (r) =>
@@ -548,7 +564,7 @@ export default function App() {
             Lead Connect<small>Hotel operations</small>
           </div>
         </div>
-        <span className="test-label">TEST ENVIRONMENT</span>
+        <span className="test-label">{import.meta.env.VITE_APP_ENV === "production" ? "STAFF OPERATIONS" : "TEST ENVIRONMENT"}</span>
         <nav aria-label="Main navigation">
           {nav.map((n) => (
             <button
@@ -556,6 +572,7 @@ export default function App() {
               className={page === n ? "nav active" : "nav"}
               aria-current={page === n ? "page" : undefined}
               onClick={() => {
+                setData({});
                 setPage(n);
                 setSuccess("");
               }}
@@ -572,7 +589,10 @@ export default function App() {
             onClick={async () => {
               try {
                 await logout();
-              } catch {}
+              } catch {
+                setError("Sign out could not be confirmed. Reconnect and try Sign out again.");
+                return;
+              }
               setIdentity(null);
               setPage("Dashboard");
             }}
@@ -621,7 +641,31 @@ export default function App() {
           </div>
         )}
         {loading && <p role="status" className="loading-message">Loading {page.toLowerCase()}…</p>}
-        <div hidden={loading || !!error}>
+        <div hidden={loading || (!!error && page !== "Account")}>
+        {page === "Account" && (
+          <form className="panel" onSubmit={async event => {
+            event.preventDefault();
+            const fields = new FormData(event.currentTarget);
+            const newPassword = String(fields.get("newPassword"));
+            if (newPassword !== String(fields.get("confirmation"))) { setError("The new passwords do not match."); return; }
+            setBusy(true);
+            try {
+              await api("/auth/password", "POST", { currentPassword: String(fields.get("currentPassword")), newPassword });
+              forgetSession();
+              setIdentity(null);
+              setPage("Dashboard");
+              setSuccess("Password changed. Sign in with your new password.");
+            } catch (e) { setError((e as Error).message); }
+            finally { setBusy(false); }
+          }}>
+            <h2>Change your password</h2>
+            <p>Use your own password. Changing it signs out remembered sessions. Other open sessions can remain active for up to 15 minutes.</p>
+            <label className="control">Current password<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} /></label>
+            <label className="control">New password<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+            <label className="control">Confirm new password<input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+            <button disabled={busy}>{busy ? "Changing password…" : "Change password"}</button>
+          </form>
+        )}
         {page === "Dashboard" && (
           <>
             <p className="section-intro">Your daily operating picture.</p>
@@ -1004,7 +1048,7 @@ export default function App() {
                     )}
                     <details>
                       <summary>History</summary>
-                      {t.events.map((event: any) => (
+                      {(t.events ?? []).map((event: any) => (
                         <p key={event.id}>
                           {new Date(event.createdAt).toLocaleString()} ·{" "}
                           {event.toStatus ?? "Updated"} · {event.comment ?? ""}
@@ -1081,7 +1125,8 @@ export default function App() {
                     </small>
                   </div>
                   <div className="actions">
-                    {["PENDING", "IN_PROGRESS"].includes(t.status) && (
+                    {t.status === "PENDING" && (manager || !t.assignedToId || t.assignedToId === identity.user.id) && <button disabled={busy} onClick={() => run("/front-desk/tasks/" + t.id, "PATCH", { status: "IN_PROGRESS" })}>Start</button>}
+                    {["PENDING", "IN_PROGRESS"].includes(t.status) && (manager || !t.assignedToId || t.assignedToId === identity.user.id) && (
                       <button
                         disabled={busy}
                         onClick={() =>
@@ -1171,7 +1216,7 @@ export default function App() {
           <>
             {manager && (
               <FormPanel
-                title="Create employee test account"
+                title="Create employee account"
                 fields={[
                   { name: "name", label: "Employee name", required: true },
                   {
@@ -1408,8 +1453,7 @@ export default function App() {
         )}
         </div>
         <footer className="workspace-footer">
-          Lead Connect · Separate hotel operations test project · No PMS
-          connection
+          {import.meta.env.VITE_APP_ENV === "production" ? "Lead Connect · Hotel staff operations · Manual PMS reconciliation" : "Lead Connect · Separate hotel operations test project · No PMS connection"}
         </footer>
       </main>
     </div>
