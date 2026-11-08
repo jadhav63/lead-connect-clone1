@@ -1,5 +1,5 @@
 # Feature checklist
-Updated November 08, 2026, 12:56 AM Arizona.
+Updated November 08, 2026, 01:07 AM Arizona.
 
 ## Verified locally
 - [x] Authentication/session/property-membership foundation
@@ -21,10 +21,16 @@ Updated November 08, 2026, 12:56 AM Arizona.
 - [x] Readable network/proxy errors and save-in-progress control locks
 - [x] Keyboard skip link, narrow-screen touch sizing and print CSS implementation
 - [x] Free isolated frontend deployment settings prepared (not provisioned)
-- [x] November 8: 60 backend / 19 frontend tests and both builds passed; fixtures removed
+- [x] November 8: 72 backend / 19 frontend tests and both builds passed; fixtures removed
+
+- [x] Authorized Neon test-console metadata reverified with passwords masked
+- [x] Private Windows credential setup guide (no secret transfer through chat)
+- [x] Actual session database/schema/TLS guard before migration writes
+- [x] Named table/index/FK and ordered enum catalog checks; 12 new tests
+- [x] Print business date and saved room notes/housekeeping assignees
 
 ## Partially verified / remaining
-- [ ] Neon cloud schema migration and live disposable session/permission tests (private credentials unavailable; networking not retested)
+- [ ] Neon cloud schema migration and live disposable session/permission tests (private workspace credentials unavailable; secure transfer mechanism absent)
 - [ ] Deploy current backend and web increment to the isolated test environment
 - [ ] Real frontend HTTPS origin, same-site cookie and CORS integration
 - [ ] Full browser rendering/keyboard/accessibility/mobile/print pagination QA
@@ -39,4 +45,4 @@ Updated November 08, 2026, 12:56 AM Arizona.
 
 Render baseline health/readiness is verified, but this does not prove schema installation or cloud authentication. Mobile remains a documented plan. Do not mark unchecked items complete based only on generated source.
 
-Current Render environment is named Production; test-only designation must be resolved before deployment. Latest web source: https://github.com/jadhav63/lead-connect-clone1/commit/f12897a6e9641ff1ea3cd02d9573c49a6c78c05c
+Current Render environment is named Production; test-only designation must be resolved before deployment. Latest verified source: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73

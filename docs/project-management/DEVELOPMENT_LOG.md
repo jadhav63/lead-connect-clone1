@@ -35,3 +35,16 @@
 - Render grouping is named Production; test-only use is unresolved, so migration and deployment gates remain closed. Prepared apps/web/TEST_DEPLOYMENT.md without creating hosting or DNS changes.
 - Updated six matching management documents for in-place Drive synchronization; final synchronization result is reported at session completion.
 - No production systems, real accounts/data or paid resources touched. Full browser/cloud workflow QA remains pending.
+
+## November 08, 2026, 01:07 AM Arizona — secure Neon connection recovery
+- Pulled main and read the required configuration/guard files. Git ignores apps/api/.env/private variants; no tracked secrets or local .env found. DATABASE_URL and DIRECT_URL are the only variables required for migration.
+- Authorized Neon test-console access confirmed. Independently verified project gentle-rice-55255812, branch br-polished-bread-artfes8a, leadconnect, direct/pooled allowlisted endpoints and displayed required TLS. Passwords remained masked; no private values obtained or transferred. No supported secure browser-to-workspace secret bridge exists.
+- Guarded --check rerun, exit 1: DATABASE_URL: private render-test connection required. No cloud migration or cloud fixture/account tests run. No production access or SQL-console workaround.
+- Added apps/api/NEON_WINDOWS_SETUP.md with private local entry procedure, exact non-secret target metadata and conditional preflight/migration steps. No JWT/bootstrap secrets needed for migrations.
+- Strengthened existing runner with actual database/schema/negotiated TLS checks before row reads/DDL, schema-qualified row checks, and exact table/index/FK plus ordered enum validation after Prisma status/drift. Did not weaken endpoint or data guards.
+- Added 12 regression/catalog checks. Actual PostgreSQL test caught enum name-array parsing; explicitly cast enum labels to text and queried serially on the shared pg client. Final 72 backend tests passed.
+- Both migrations applied on a fresh disposable local PostgreSQL 18.6 cluster; no drift; catalog baseline 14 models/11 enums/41 indexes/34 FKs verified. Both builds passed.
+- Print layout now uses saved assignees/room notes and includes business date. Resolved duplicate read-only print content; final 19 frontend tests passed including real local API/database workflow. Exact local fixtures cleaned to zero users/properties. Physical/browser print QA is not claimed.
+- Render settings rechecked: b4f909d, automatic deploy Off, Production environment label. Real-user traffic and secret database target remain unverified; no configuration change or deployment.
+- Published source commit: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73. Six existing Drive documents are synchronized in place and read back; completion report records actual sync result.
+- Remaining: private configuration on a supported computer/facility, successful guarded Neon run, cloud disposable workflow tests, verified Render test-only target/traffic, isolated frontend and browser acceptance QA.
