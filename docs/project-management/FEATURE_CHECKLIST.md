@@ -1,4 +1,5 @@
 # Feature checklist
+Updated November 08, 2026, 12:56 AM Arizona.
 
 ## Verified locally
 - [x] Authentication/session/property-membership foundation
@@ -16,8 +17,14 @@
 - [x] CSV preview/explicit save, room colors, print/mobile CSS implementation
 - [x] Local React/API/database workflow test and fixture cleanup
 
+- [x] Stale page/date response protection and loading/Retry regression tests
+- [x] Readable network/proxy errors and save-in-progress control locks
+- [x] Keyboard skip link, narrow-screen touch sizing and print CSS implementation
+- [x] Free isolated frontend deployment settings prepared (not provisioned)
+- [x] November 8: 60 backend / 19 frontend tests and both builds passed; fixtures removed
+
 ## Partially verified / remaining
-- [ ] Neon cloud schema migration and live disposable session/permission tests (network blocked)
+- [ ] Neon cloud schema migration and live disposable session/permission tests (private credentials unavailable; networking not retested)
 - [ ] Deploy current backend and web increment to the isolated test environment
 - [ ] Real frontend HTTPS origin, same-site cookie and CORS integration
 - [ ] Full browser rendering/keyboard/accessibility/mobile/print pagination QA
@@ -31,3 +38,5 @@
 - [ ] Production hardening/recovery verification and separate rollout approval
 
 Render baseline health/readiness is verified, but this does not prove schema installation or cloud authentication. Mobile remains a documented plan. Do not mark unchecked items complete based only on generated source.
+
+Current Render environment is named Production; test-only designation must be resolved before deployment. Latest web source: https://github.com/jadhav63/lead-connect-clone1/commit/f12897a6e9641ff1ea3cd02d9573c49a6c78c05c
