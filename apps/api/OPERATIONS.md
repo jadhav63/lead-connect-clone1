@@ -1,5 +1,11 @@
 # Operational API — current test checkpoint (November 8, 2026)
 
+## Current runtime database configuration
+
+`src/lib/database-config.ts` supplies one explicit `pg.Pool` shared with PrismaPg. It decodes URL credentials exactly once, fixes schema to public, rejects connection/TLS override parameters, uses five pooled clients with a 15-second connection timeout, and enables channel binding for TLS connections. Canonical remote URLs use `sslmode=verify-full&channel_binding=require`. Legacy `sslmode=require` is accepted only as input and upgraded to explicit certificate/hostname verification (`rejectUnauthorized: true`); no URL SSL options reach the driver. On Render's `lead-connect-api-staging`, the exact approved pooled host/database/role are enforced. Readiness checks the TLS socket, database/schema identity, and an actual Prisma query. Public responses contain only ready/unavailable. Private structured logs contain allowlisted error category/code, never messages, credentials, URLs, query values or tokens.
+
+Latest cloud diagnosis (November 8, 2026, 10:17 Arizona): deployed commit `05d9fbb` is Live; health 200, readiness 503. Private log: `authentication_failure` / `28P01`. Synchronize the existing working test URL privately into staging Render; do not request another password reset without new evidence. The existing Neon migration remains completed and was not repeated. Historical statements below requiring an unconditional reset or requiring a literal URL mode instead of verified runtime TLS are superseded by this checkpoint.
+
 The Neon `render-test` schema migration was completed successfully on JD's Windows computer on November 8, 2026 (user-reported PowerShell verification: Prisma validate, migrate deploy/status/diff all passed; catalog 14 models, 11 enums, 41 indexes, 34 foreign keys). This workspace has not rerun the cloud migration. The historical local verification notes below are separate from the cloud result.
 
 All routes are under `/api`, require a Bearer access token, and derive property scope from that token. No public account or property registration has been added. Responses containing application data use `Cache-Control: no-store`.

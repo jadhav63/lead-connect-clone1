@@ -1,4 +1,14 @@
 # Next session
+## Latest verified staging diagnosis — November 8, 2026, 10:20 Arizona
+
+This checkpoint supersedes the historical reset/deployment instructions below. JD has already reset the Neon password multiple times; do not request another reset. API source repair and diagnostics commit `05d9fbb92470a25350f1f16976a021ea4e0d09fc` was manually deployed to the isolated Free staging API (`srv-dboa1irl550s7394fm90`), deploy `dep-dboasfjl550s7396pfqg`, status Live. Auto-Deploy is Off. Production was untouched. Health is 200; readiness is 503. The deployed private diagnostic at 17:16:58 UTC reports `authentication_failure`, PostgreSQL code `28P01`.
+
+Runtime verified the configured pooled staging host, `leadconnect`, `neondb_owner`, and public schema configuration without logging secret values. TLS uses explicit `rejectUnauthorized: true`; channel binding is enabled. Legacy `sslmode=require` input is upgraded in memory to certificate/hostname-verified TLS instead of being passed to driver URL parsing. The password is decoded exactly once and is never logged or changed. The stored Render credential is rejected; this does not prove the owner's current valid Neon password is wrong. Privately synchronize the existing valid pooled test URL into Render, then recheck readiness. No reset or migration is needed for this step.
+
+Render connector now works. Neon connector belongs to an account with no projects; project `gentle-rice-55255812` and endpoint/branch reads return HTTP 404. It cannot inspect this existing project. No connection-string retrieval was attempted. Never ask for secrets in chat. After authorized access is corrected, continue login/demo workflow checks immediately; do not repeat infrastructure setup.
+
+Restored intact `operations.ts` and `App.tsx`: prior GitHub files contained truncated output text, despite intact local copies. The deployment build passed with repaired source. Relevant backend tests: 56 passed; API build passed. Frontend: 21 passed, 1 skipped; TypeScript/build passed. Cloud checks: CORS preflight 204 with exact staging origin/credentials, unauthenticated access 401, hostile auth origin 403. Login, seeded hotel, housekeeping, maintenance, sessions and reports remain blocked by database authentication. No cloud fixtures were inserted or migrations repeated.
+
 Updated November 8, 2026, 09:45 UTC.
 
 ## Exact checkpoint
