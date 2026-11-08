@@ -66,3 +66,9 @@ GitHub continuation commit: https://github.com/jadhav63/lead-connect-clone1/comm
 - [ ] Cloud database/API workflows, demo account/fictional fixtures, CORS/cookies, mobile/tablet/keyboard/print QA.
 - [x] Latest frontend 21 passed/1 skipped and build passed; API build passed. Latest backend tests were blocked by missing disposable local PostgreSQL; prior 79-pass checkpoint remains historical.
 - [ ] Update the GitHub commit link after publishing this documentation.
+
+## Staging API verification — November 8, 2026
+- [x] Separate free API service is Live in the Staging environment on `cb9add7`; Auto-Deploy Off.
+- [x] `/api/health` and `/api/ready` returned success; configured target checked as Neon `render-test` / `leadconnect`.
+- [ ] Rotate exposed test-branch password and update `DATABASE_URL` to pooled `sslmode=verify-full` before cloud workflow testing.
+- [ ] Verify CORS/cookies, login, roles, property isolation, housekeeping, maintenance, front desk, notifications, audit, reports and fictional demo.
