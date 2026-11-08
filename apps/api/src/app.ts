@@ -9,7 +9,8 @@ import { HttpError } from './lib/errors.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import operationsRouter from './routes/operations.js';
-import { prisma } from './lib/db.js';
+import { databasePool, verifyDatabaseReadiness } from './lib/db.js';
+import { databaseFailureLog } from './lib/database-diagnostics.js';
 export const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', proxyTrustSetting(env.NODE_ENV));
@@ -18,9 +19,21 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', application: 'Lead Connect Clone', timestamp: new Date().toISOString() }));
+let lastReadinessFailure = '', lastReadinessLogAt = 0;
 app.get('/api/ready', async (_req, res) => {
-  try { await prisma.$queryRaw`SELECT 1`; res.json({ status: 'ready' }); }
-  catch { res.status(503).json({ status: 'unavailable' }); }
+  res.set('Cache-Control', 'no-store');
+  try {
+    await verifyDatabaseReadiness();
+    if (lastReadinessFailure) console.info(JSON.stringify({ event: 'database_ready' }));
+    lastReadinessFailure = '';
+    res.json({ status: 'ready' });
+  } catch (error) {
+    const diagnostic = databaseFailureLog(error, 'readiness', databasePool.waitingCount);
+    if (diagnostic !== lastReadinessFailure || Date.now() - lastReadinessLogAt > 60_000) {
+      console.error(diagnostic); lastReadinessFailure = diagnostic; lastReadinessLogAt = Date.now();
+    }
+    res.status(503).json({ status: 'unavailable' });
+  }
 });
 app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use('/api/auth', authRouter);

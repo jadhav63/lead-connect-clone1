@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 13254)
-Total output lines: 1487
-
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, login, logout } from "./api";
 import { parseRoomCSV } from "./csv";
@@ -452,7 +449,700 @@ export default function App() {
       setSuccess("Saved successfully");
       await load();
       return true;
-    } …6254 tokens truncated…  <p className="preserve-lines">{h.notes}</p>
+    } catch (e) {
+      setError((e as Error).message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function signIn(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fields = new FormData(e.currentTarget);
+    setBusy(true);
+    setError("");
+    try {
+      await login(
+        String(fields.get("email")),
+        String(fields.get("password")),
+        String(fields.get("propertyCode")),
+      );
+      setIdentity(await api<Identity>("/auth/me"));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (checking)
+    return (
+      <main className="loading" role="status">
+        Connecting to Lead Connect…
+      </main>
+    );
+  if (!identity)
+    return (
+      <main className="login">
+        <div className="login-brand">
+          <span className="brand-mark">LC</span>
+          <h1>Lead Connect</h1>
+          <p>Hotel operations, connected.</p>
+          <span className="test-label">Separate test project</span>
+        </div>
+        <form onSubmit={signIn} className="login-form">
+          <h2>Sign in to your property</h2>
+          <p className="muted">Use an account created by your administrator.</p>
+          <label className="control">
+            Property code
+            <input name="propertyCode" autoComplete="organization" required />
+          </label>
+          <label className="control">
+            Email
+            <input name="email" type="email" autoComplete="username" required />
+          </label>
+          <label className="control">
+            Password
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              maxLength={128}
+            />
+          </label>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+          <small>No public registration. No live hotel data.</small>
+        </form>
+      </main>
+    );
+  const nav = [
+    "Dashboard",
+    "Rooms",
+    "Housekeeping",
+    "Maintenance",
+    "Notifications",
+    ...(desk ? ["Front Desk", "Employees"] : []),
+    ...(manager ? ["Reports", "Activity", "Settings"] : []),
+  ];
+  const filtered = rooms.filter(
+    (r) =>
+      (r.number.includes(search) ||
+        r.roomType?.toLowerCase().includes(search.toLowerCase())) &&
+      (filter === "ALL" || r.occupancyStatus === filter),
+  );
+  const notifications = Array.isArray(data) ? data : [];
+  const activityEntries = Array.isArray(data) ? data : [];
+  const visibleActivity = activityEntries.filter((entry: any) => `${entry.actor?.name ?? "System"} ${entry.action ?? "UPDATE"} ${entry.entityType ?? "Record"}`.toLowerCase().includes(activitySearch.toLowerCase()));
+  return (
+    <div className="shell">
+      <a className="skip-link" href="#workspace">Skip to workspace</a>
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">LC</span>
+          <div>
+            Lead Connect<small>Hotel operations</small>
+          </div>
+        </div>
+        <span className="test-label">TEST ENVIRONMENT</span>
+        <nav aria-label="Main navigation">
+          {nav.map((n) => (
+            <button
+              key={n}
+              className={page === n ? "nav active" : "nav"}
+              aria-current={page === n ? "page" : undefined}
+              onClick={() => {
+                setPage(n);
+                setSuccess("");
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </nav>
+        <div className="profile">
+          <strong>{identity.user.name}</strong>
+          <small>{identity.roles.map(label).join(" · ")}</small>
+          <button
+            className="secondary"
+            onClick={async () => {
+              try {
+                await logout();
+              } catch {}
+              setIdentity(null);
+              setPage("Dashboard");
+            }}
+          >
+            Sign out
+          </button>
+        </div>
+      </aside>
+      <main className="workspace" id="workspace" aria-busy={loading}>
+        <header className="topbar">
+          <div>
+            <small>{property?.name ?? "Your property"}</small>
+            <h1>{page}</h1>
+          </div>
+          <div className="top-actions">
+            <label className="control">
+              <span>Business date · Arizona</span>
+              <input
+                type="date"
+                aria-label="Business date"
+                value={day}
+                onChange={(e) => setDay(e.target.value)}
+              />
+            </label>
+            <button
+              className="secondary"
+              disabled={busy || loading}
+              onClick={() => void load()}
+            >
+              Refresh
+            </button>
+          </div>
+        </header>
+        <p className="print-only">{property?.name ?? "Your property"} · {page} · {page === "Reports" && reportPeriod === "MONTH" ? reportMonth : day} (Arizona)</p>
+        {success && (
+          <div role="status" className="success">
+            ✓ {success}
+          </div>
+        )}
+        {error && (
+          <div role="alert" className="error">
+            {error}
+            <button className="secondary" onClick={() => void load()}>
+              Retry
+            </button>
+          </div>
+        )}
+        {loading && <p role="status" className="loading-message">Loading {page.toLowerCase()}…</p>}
+        <div hidden={loading || !!error}>
+        {page === "Dashboard" && (
+          <>
+            <p className="section-intro">Your daily operating picture.</p>
+            <div className="stats">
+              {[
+                ["Rooms", rooms.length],
+                [
+                  "Departures",
+                  rooms.filter((r) => r.occupancyStatus === "DEPARTURE").length,
+                ],
+                [
+                  "Stayovers",
+                  rooms.filter((r) => r.occupancyStatus === "OCCUPIED").length,
+                ],
+                [
+                  "Arrivals",
+                  rooms.filter((r) => r.occupancyStatus === "ARRIVAL").length,
+                ],
+                [
+                  "Vacant",
+                  rooms.filter((r) => r.occupancyStatus === "VACANT").length,
+                ],
+                ["Open repairs", data.openMaintenance ?? "—"],
+              ].map(([name, count]) => (
+                <article className="stat" key={name}>
+                  <small>{name}</small>
+                  <strong>{count}</strong>
+                </article>
+              ))}
+            </div>
+            <div className="two">
+              <section className="panel">
+                <h2>Room readiness</h2>
+                {roomStatuses.map((s) => (
+                  <div className="metric" key={s}>
+                    <span>{label(s)}</span>
+                    <strong>
+                      {rooms.filter((r) => r.status === s).length}
+                    </strong>
+                  </div>
+                ))}
+              </section>
+              <section className="panel">
+                <h2>Follow-up</h2>
+                <div className="metric">
+                  Unverified front desk tasks
+                  <strong>{data.unverifiedFrontDeskTasks ?? "—"}</strong>
+                </div>
+                <div className="metric">
+                  Unverified handovers
+                  <strong>{data.unverifiedHandovers ?? "—"}</strong>
+                </div>
+                <div className="metric">
+                  Overdue open work
+                  <strong>{data.overdue?.total ?? "—"}</strong>
+                </div>
+                {data.overdue && (
+                  <p className="muted">
+                    {data.overdue.cleaning} cleaning · {data.overdue.frontDesk} front desk · {data.overdue.maintenance} maintenance from earlier business dates
+                  </p>
+                )}
+                <h3>Cleaning today</h3>
+                <div className="metric">
+                  <span>Progress</span>
+                  <strong>
+                    {(data.cleaning ?? []).filter((s: any) => ["COMPLETED", "VERIFIED", "CANCELLED"].includes(s.status)).reduce((n: number, s: any) => n + s._count, 0)} / {(data.cleaning ?? []).reduce((n: number, s: any) => n + s._count, 0)} closed
+                  </strong>
+                </div>
+                {(data.cleaning ?? []).map((s: any) => (
+                  <div className="metric" key={s.status}>
+                    <span>{label(s.status)}</span>
+                    <strong>{s._count}</strong>
+                  </div>
+                ))}
+                <p className="muted">Refresh to see the latest changes.</p>
+              </section>
+            </div>
+          </>
+        )}
+        {page === "Rooms" && (
+          <>
+            <div className="toolbar">
+              <label className="control">
+                <span>Search rooms</span>
+                <input
+                  placeholder="Room number or type"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </label>
+              <Select
+                name="Occupancy filter"
+                value={filter}
+                items={[
+                  { value: "ALL", label: "All rooms" },
+                  ...options(occupancyStatuses),
+                ]}
+                onChange={setFilter}
+              />
+              <span className="legend">
+                <i className="red" />
+                Departure <i className="yellow" />
+                Stayover <i className="green" />
+                Vacant
+              </span>
+            </div>
+            {desk && (
+              <FormPanel
+                title="Add room"
+                fields={[
+                  { name: "number", label: "Room number", required: true },
+                  {
+                    name: "floor",
+                    label: "Floor",
+                    type: "number",
+                    required: true,
+                    min: 0,
+                  },
+                  { name: "roomType", label: "Room type" },
+                  { name: "notes", label: "Notes" },
+                ]}
+                submit="Create room"
+                busy={busy}
+                onSubmit={(b) => run("/rooms", "POST", b)}
+              />
+            )}
+            <div className="room-grid">
+              {filtered.map((room) => (
+                <RoomCard
+                  key={room.id + "-" + room.version}
+                  room={room}
+                  editable={desk}
+                  onSave={(b) => run("/rooms/" + room.id, "PATCH", b)}
+                />
+              ))}
+            </div>
+            {!filtered.length && (
+              <Empty>
+                No rooms match.{" "}
+                {desk ? "Add your fictional test inventory to begin." : ""}
+              </Empty>
+            )}
+          </>
+        )}
+        {page === "Housekeeping" && (
+          <>
+            {desk && (
+              <>
+                <FormPanel
+                  key={day}
+                  title="Assign a room"
+                  fields={[
+                    {
+                      name: "roomId",
+                      label: "Room",
+                      options: roomOptions(rooms),
+                      required: true,
+                    },
+                    {
+                      name: "cleaningType",
+                      label: "Cleaning type",
+                      options: options(cleaningTypes),
+                      required: true,
+                    },
+                    {
+                      name: "assignedToId",
+                      label: "Employee",
+                      options: employeeOptions(employees, "HOUSEKEEPING"),
+                    },
+                    {
+                      name: "scheduledFor",
+                      label: "Date",
+                      type: "date",
+                      value: day,
+                      required: true,
+                    },
+                    { name: "instructions", label: "Instructions" },
+                  ]}
+                  submit="Save assignment"
+                  busy={busy}
+                  onSubmit={(b) => run("/housekeeping", "POST", b)}
+                />
+                <details className="panel">
+                  <summary>Upload daily room CSV</summary>
+                  <p>
+                    Columns: roomNumber,occupancyStatus,cleaningType. Existing
+                    room numbers only. No guest information. Current business
+                    date: {day}.
+                  </p>
+                  <input
+                    type="file"
+                    aria-label="Daily room CSV"
+                    accept=".csv,text/csv"
+                    disabled={busy}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        if (file.size > 100000)
+                          throw new Error("CSV must be smaller than 100 KB");
+                        setCsvRows(parseRoomCSV(await file.text()));
+                      } catch (err) {
+                        setError((err as Error).message);
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                  {csvRows && (
+                    <div className="actions">
+                      <p>
+                        {csvRows.length} validated room rows ready for {day}.
+                      </p>
+                      <button
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            await run("/housekeeping/import", "POST", {
+                              date: day,
+                              rows: csvRows,
+                            })
+                          )
+                            setCsvRows(null);
+                        }}
+                      >
+                        Save imported assignments
+                      </button>
+                      <button
+                        className="secondary"
+                        onClick={() => setCsvRows(null)}
+                      >
+                        Discard preview
+                      </button>
+                    </div>
+                  )}
+                </details>
+              </>
+            )}
+            <div className="section-heading">
+              <h2>Housekeeping board · {day}</h2>
+              <button className="secondary" onClick={() => window.print()}>
+                Print board
+              </button>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    {["Room", "Service", "Employee", "Status", "Action"].map(
+                      (x) => (
+                        <th key={x}>{x}</th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.isArray(data) &&
+                    data.map((task) => (
+                      <AssignmentRow
+                        key={
+                          task.id + "-" + task.status + "-" + task.assignedToId
+                        }
+                        task={task}
+                        employees={employees}
+                        canAssign={desk}
+                        run={run}
+                        busy={busy}
+                      />
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {(!Array.isArray(data) || !data.length) && (
+              <Empty>No cleaning assignments for this date.</Empty>
+            )}
+          </>
+        )}
+        {page === "Maintenance" && (
+          <>
+            <FormPanel
+              title="Create maintenance ticket"
+              fields={[
+                { name: "title", label: "Issue", required: true },
+                {
+                  name: "description",
+                  label: "Details",
+                  type: "textarea",
+                  required: true,
+                },
+                { name: "roomId", label: "Room", options: roomOptions(rooms) },
+                {
+                  name: "priority",
+                  label: "Priority",
+                  options: options(["LOW", "MEDIUM", "HIGH", "URGENT"]),
+                  required: true,
+                  value: "MEDIUM",
+                },
+                ...(desk
+                  ? [
+                      {
+                        name: "assignedToId",
+                        label: "Assign maintenance employee",
+                        options: employeeOptions(employees, "MAINTENANCE"),
+                      },
+                    ]
+                  : []),
+              ]}
+              submit="Create ticket"
+              busy={busy}
+              onSubmit={(b) => run("/maintenance", "POST", b)}
+            />
+            <div className="ticket-list">
+              {Array.isArray(data) &&
+                data.map((t: any) => (
+                  <article className="panel" key={t.id}>
+                    <div className="section-heading">
+                      <h2>{t.title}</h2>
+                      <span className={"badge " + t.priority.toLowerCase()}>
+                        {t.priority} · {label(t.status)}
+                      </span>
+                    </div>
+                    <p>{t.description}</p>
+                    <p className="muted">
+                      {t.room ? "Room " + t.room.number : "Public area"} ·{" "}
+                      {t.assignedTo?.name ?? "Unassigned"}
+                    </p>
+                    {desk && (
+                      <MaintenanceAssignment
+                        ticket={t}
+                        employees={employees}
+                        run={run}
+                        busy={busy}
+                      />
+                    )}
+                    <div className="actions">
+                      {t.status === "OPEN" && (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run("/maintenance/" + t.id, "PATCH", {
+                              status: "IN_PROGRESS",
+                            })
+                          }
+                        >
+                          Start work
+                        </button>
+                      )}
+                      {t.status === "CLOSED" && desk && (
+                        <button
+                          disabled={busy}
+                          onClick={() =>
+                            run("/maintenance/" + t.id, "PATCH", {
+                              status: "OPEN",
+                            })
+                          }
+                        >
+                          Reopen
+                        </button>
+                      )}
+                    </div>
+                    {t.status !== "CLOSED" && (
+                      <FormPanel
+                        title="Complete repair"
+                        fields={[
+                          {
+                            name: "resolution",
+                            label: "Completion notes",
+                            type: "textarea",
+                            required: true,
+                          },
+                        ]}
+                        submit="Close ticket"
+                        busy={busy}
+                        onSubmit={(b) =>
+                          run("/maintenance/" + t.id, "PATCH", {
+                            ...b,
+                            status: "CLOSED",
+                          })
+                        }
+                      />
+                    )}
+                    <details>
+                      <summary>History</summary>
+                      {t.events.map((event: any) => (
+                        <p key={event.id}>
+                          {new Date(event.createdAt).toLocaleString()} ·{" "}
+                          {event.toStatus ?? "Updated"} · {event.comment ?? ""}
+                        </p>
+                      ))}
+                    </details>
+                    {t.resolution && (
+                      <p>
+                        <strong>Resolution:</strong> {t.resolution}
+                      </p>
+                    )}
+                  </article>
+                ))}
+            </div>
+            {(!Array.isArray(data) || !data.length) && (
+              <Empty>No maintenance tickets available.</Empty>
+            )}
+          </>
+        )}
+        {page === "Front Desk" && (
+          <>
+            <FormPanel
+              key={day}
+              title="Add checklist or inspection"
+              fields={[
+                { name: "title", label: "Task", required: true },
+                {
+                  name: "kind",
+                  label: "Type",
+                  options: options(["CHECKLIST", "INSPECTION", "OTHER"]),
+                  required: true,
+                },
+                {
+                  name: "shift",
+                  label: "Shift",
+                  options: options(["A", "B", "C"]),
+                  required: true,
+                },
+                {
+                  name: "scheduledFor",
+                  label: "Date",
+                  type: "date",
+                  value: day,
+                  required: true,
+                },
+                {
+                  name: "roomId",
+                  label: "Room (required for inspections)",
+                  options: roomOptions(rooms),
+                },
+                {
+                  name: "assignedToId",
+                  label: "Employee",
+                  options: employees
+                    .filter((e) =>
+                      ["ADMIN", "MANAGER", "FRONT_DESK"].includes(e.role),
+                    )
+                    .map((e) => ({ value: e.id, label: e.name })),
+                },
+              ]}
+              submit="Add task"
+              busy={busy}
+              onSubmit={(b) => run("/front-desk/tasks", "POST", b)}
+            />
+            <section className="panel">
+              <h2>Shift tasks</h2>
+              {(data.tasks ?? []).map((t: any) => (
+                <div className="task-line" key={t.id}>
+                  <div>
+                    <strong>{t.title}</strong>
+                    <small>
+                      {t.shift} · {label(t.kind)} ·{" "}
+                      {t.assignedTo?.name ?? "Unassigned"} · {label(t.status)}
+                    </small>
+                  </div>
+                  <div className="actions">
+                    {["PENDING", "IN_PROGRESS"].includes(t.status) && (
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          run("/front-desk/tasks/" + t.id, "PATCH", {
+                            status: "COMPLETED",
+                          })
+                        }
+                      >
+                        Complete
+                      </button>
+                    )}
+                    {manager && t.status === "COMPLETED" && (
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          run("/front-desk/tasks/" + t.id, "PATCH", {
+                            status: "VERIFIED",
+                          })
+                        }
+                      >
+                        Verify
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </section>
+            <FormPanel
+              key={"handover" + day}
+              title="Write shift handover"
+              fields={[
+                {
+                  name: "shift",
+                  label: "Outgoing shift",
+                  options: options(["A", "B", "C"]),
+                  required: true,
+                },
+                {
+                  name: "businessDate",
+                  label: "Date",
+                  type: "date",
+                  value: day,
+                  required: true,
+                },
+                {
+                  name: "notes",
+                  label: "Handover notes",
+                  type: "textarea",
+                  required: true,
+                },
+              ]}
+              submit="Save handover"
+              busy={busy}
+              onSubmit={(b) => run("/front-desk/handovers", "POST", b)}
+            />
+            {(data.handovers ?? []).map((h: any) => (
+              <article className="panel" key={h.id}>
+                <h2>
+                  Shift {h.shift} · {h.author.name}
+                </h2>
+                <p className="preserve-lines">{h.notes}</p>
                 {h.verifiedAt ? (
                   <p className="inline-success">
                     Incoming shift verified by {h.verifiedBy?.name}

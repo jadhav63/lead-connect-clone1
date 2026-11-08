@@ -12,7 +12,8 @@ describe('production configuration', () => {
   it('requires verified database TLS and an HTTPS browser origin', () => {
     expect(environmentSchema.safeParse(config).success).toBe(true);
     expect(environmentSchema.safeParse({ ...config, DATABASE_URL: 'postgresql://db.example.test/placeholder' }).success).toBe(false);
-    expect(environmentSchema.safeParse({ ...config, DATABASE_URL: 'postgresql://db.example.test/placeholder?sslmode=require' }).success).toBe(false);
+    // Runtime normalizes legacy require to explicit verified TLS, never weaker driver defaults.
+    expect(environmentSchema.safeParse({ ...config, DATABASE_URL: 'postgresql://db.example.test/placeholder?sslmode=require' }).success).toBe(true);
     expect(environmentSchema.safeParse({ ...config, DATABASE_URL: 'postgresql://db.example.test/placeholder?sslmode=verify-ca' }).success).toBe(false);
     expect(environmentSchema.safeParse({ ...config, CORS_ORIGIN: 'http://app.example.test' }).success).toBe(false);
   });
@@ -25,7 +26,6 @@ describe('reverse proxy trust', () => {
   it('trusts only the immediate Render proxy in production', () => {
     expect(proxyTrustSetting('production')).toBe(1);
   });
-
   it('does not trust forwarded headers outside production', () => {
     expect(proxyTrustSetting('test')).toBe(false);
     expect(proxyTrustSetting('development')).toBe(false);
