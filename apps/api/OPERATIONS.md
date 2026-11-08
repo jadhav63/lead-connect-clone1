@@ -44,3 +44,5 @@ The current static test frontend is https://lead-connect-web-staging.onrender.co
 
 ## Staging verification — November 8, 2026
 The separate Free staging API is Live at https://lead-connect-api-staging.onrender.com on commit `cb9add7`; `/api/health` returned `ok`, `/api/ready` returned `ready`, and Auto-Deploy is Off. The configured target was checked as Neon `render-test` / `leadconnect`. A credential exposure was detected in an agent-visible Render settings result. The Neon test-branch role password must be reset and the Render `DATABASE_URL` replaced privately with the pooled URL using `sslmode=verify-full` before running cloud workflows or inserting demo data. Never rerun the completed migration or use production data.
+
+Production API startup requires `DATABASE_URL` query parameter `sslmode=verify-full`; weaker `require`/`verify-ca` modes fail closed. Apply the matching setting to staging before deploying the latest source.

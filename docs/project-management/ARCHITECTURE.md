@@ -50,3 +50,5 @@ Free Render project `Lead Connect Clone Staging`, environment `Staging`: static 
 
 ## Staging API — November 8, 2026
 A separate Free Render service `lead-connect-api-staging` (`srv-dboa1irl550s7394fm90`) is Live from commit `cb9add7` in project/environment `Lead Connect Clone Staging` / `Staging`; Auto-Deploy Off. Health and readiness succeeded. Its configured DB target was checked as Neon `render-test` / `leadconnect`. Current connection URL uses TLS mode `require`; replace with pooled `sslmode=verify-full` after resetting the exposed test-branch password. Do not add demo records until the credential is rotated. The existing Production-labeled API is unchanged.
+
+Production API configuration enforces `sslmode=verify-full` to validate the TLS certificate and hostname. The staging service still runs the previous commit until a manual deploy after the private credential rotation.

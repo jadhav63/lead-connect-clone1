@@ -72,3 +72,6 @@ GitHub continuation commit: https://github.com/jadhav63/lead-connect-clone1/comm
 - [x] `/api/health` and `/api/ready` returned success; configured target checked as Neon `render-test` / `leadconnect`.
 - [ ] Rotate exposed test-branch password and update `DATABASE_URL` to pooled `sslmode=verify-full` before cloud workflow testing.
 - [ ] Verify CORS/cookies, login, roles, property isolation, housekeeping, maintenance, front desk, notifications, audit, reports and fictional demo.
+
+- [x] Production environment validation now requires PostgreSQL `sslmode=verify-full` (targeted regression tests pass).
+- [ ] Deploy this TLS enforcement to staging only after private Neon password rotation and DATABASE_URL correction.

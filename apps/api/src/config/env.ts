@@ -11,8 +11,8 @@ export const environmentSchema = z.object({
 }).superRefine((value, context) => {
   if (value.NODE_ENV === 'production') {
     const mode = new URL(value.DATABASE_URL).searchParams.get('sslmode');
-    if (!['require', 'verify-ca', 'verify-full'].includes(mode ?? '')) {
-      context.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Production database connections must require TLS' });
+    if (mode !== 'verify-full') {
+      context.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Production database connections must verify TLS certificates and hostnames (sslmode=verify-full)' });
     }
     if (!value.CORS_ORIGIN.startsWith('https://')) {
       context.addIssue({ code: 'custom', path: ['CORS_ORIGIN'], message: 'Production browser origin must use HTTPS' });
