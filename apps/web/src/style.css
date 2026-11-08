@@ -704,3 +704,10 @@ thead th {
   textarea { border: 0; resize: none; }
   .badge, .room-card { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+.print-only { display: none; }
+@media print {
+  .print-only { display: block; }
+  .screen-only, .room-card .control { display: none !important; }
+  .room-card .preserve-lines { white-space: pre-wrap; overflow-wrap: anywhere; }
+}

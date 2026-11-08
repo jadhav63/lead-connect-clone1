@@ -115,6 +115,7 @@ export function RoomCard({
         <span className={"dot " + room.status.toLowerCase()} />
         {label(room.status)}
       </p>
+      {editable && <p className="print-only preserve-lines">{room.notes || "No room notes"}</p>}
       {editable ? (
         <>
           <div className="two">
@@ -162,7 +163,7 @@ export function RoomCard({
           )}
         </>
       ) : (
-        <p className="muted">{room.notes || "No room notes"}</p>
+        <p className="muted preserve-lines">{room.notes || "No room notes"}</p>
       )}
     </article>
   );
@@ -266,8 +267,9 @@ function AssignmentRow({
       <th scope="row">{task.room.number}</th>
       <td>{label(task.cleaningType)}</td>
       <td>
+        {canAssign && <span className="print-only">{task.assignedTo?.name ?? "Unassigned"}</span>}
         {canAssign ? (
-          <div className="assignment">
+          <div className="assignment screen-only">
             <select
               aria-label={"Assign room " + task.room.number}
               value={assigned}
@@ -303,7 +305,7 @@ function AssignmentRow({
             {saved && <span role="status">Saved</span>}
           </div>
         ) : (
-          (task.assignedTo?.name ?? "Unassigned")
+          <span>{task.assignedTo?.name ?? "Unassigned"}</span>
         )}
       </td>
       <td>
@@ -595,6 +597,7 @@ export default function App() {
             </button>
           </div>
         </header>
+        <p className="print-only">{property?.name ?? "Your property"} · {page} · {day} (Arizona)</p>
         {success && (
           <div role="status" className="success">
             ✓ {success}

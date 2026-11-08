@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync } from "node:fs";
 import { assertRenderTestTarget } from "./render-test-target.mjs";
+import { assertRenderTestSession, expectedMigrationCatalog, readMigrationCatalog, assertMigrationCatalog } from "./migration-catalog.mjs";
 
 async function main() {
   assertRenderTestTarget(process.env);
@@ -15,6 +16,11 @@ async function main() {
   try {
     await client.connect();
     connected = true;
+    // Validate the actual server session before reading application rows or running DDL.
+    const session = await client.query(`SELECT current_database() AS database,
+      current_schema() AS schema,
+      (SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()) AS tls`);
+    assertRenderTestSession(session.rows[0]);
     const tables = (
       await client.query(
         "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
@@ -28,9 +34,8 @@ async function main() {
         readFileSync(new URL(name + "/migration.sql", root), "utf8"),
       )
       .join("\n");
-    const expectedTables = [
-      ...migration.matchAll(/CREATE TABLE "([^"]+)"/g),
-    ].map((m) => m[1]);
+    const expected = expectedMigrationCatalog(migration);
+    const expectedTables = expected.tables;
     if (
       tables.some(
         (t) => t !== "_prisma_migrations" && !expectedTables.includes(t),
@@ -43,7 +48,7 @@ async function main() {
     // Initial schema only: refuse all existing application rows, even test rows.
     for (const table of tables.filter((t) => expectedTables.includes(t))) {
       const count = await client.query(
-        `SELECT EXISTS (SELECT 1 FROM "${table}") AS populated`,
+        `SELECT EXISTS (SELECT 1 FROM "public"."${table}") AS populated`,
       );
       if (count.rows[0].populated)
         throw new Error(
@@ -83,17 +88,8 @@ async function main() {
         );
       console.log(`Prisma ${args.slice(0, 2).join(" ")}: passed`);
     }
-    const catalog = await client.query(`SELECT
-      (SELECT count(*)::int FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations') AS models,
-      (SELECT count(*)::int FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='public' AND t.typtype='e') AS enums,
-      (SELECT count(*)::int FROM pg_indexes WHERE schemaname='public' AND tablename <> '_prisma_migrations') AS indexes,
-      (SELECT count(*)::int FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='public' AND c.contype='f') AS foreign_keys`);
-    if (
-      catalog.rows[0].models !== expectedTables.length ||
-      catalog.rows[0].enums !== [...migration.matchAll(/CREATE TYPE /g)].length
-    )
-      throw new Error("Unexpected migrated catalog counts");
-    console.log("Test migration verified:", catalog.rows[0]);
+    const catalog = await readMigrationCatalog(client);
+    console.log("Test migration verified:", assertMigrationCatalog(expected, catalog));
   } finally {
     if (connected) await client.end();
     else await client.end().catch(() => {});
@@ -102,7 +98,7 @@ async function main() {
 main().catch((error) => {
   // Only these fixed messages are safe to display. Raw driver errors may contain secrets.
   const safe =
-    /^(DATABASE_URL:|DIRECT_URL:|Unexpected public|Existing application|Prisma |Unexpected migrated)/.test(
+    /^(DATABASE_URL:|DIRECT_URL:|Unexpected public|Existing application|Prisma |Unexpected migrated|Unexpected database, schema, or negotiated TLS; refusing migration$)/.test(
       error.message,
     );
   console.error(
