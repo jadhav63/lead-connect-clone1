@@ -840,6 +840,49 @@ router.get("/dashboard", async (req, res) => {
   });
 });
 router.get("/reports", management, async (req, res) => {
+  if (req.query.month !== undefined) {
+    if (req.query.date !== undefined)
+      throw new HttpError(400, "Choose either a report date or month");
+    const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).parse(req.query.month);
+    const [year, monthNumber] = month.split("-").map(Number);
+    const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+    const end = new Date(Date.UTC(year, monthNumber, 1));
+    const where = {
+      propertyId: auth(req).propertyId,
+      scheduledFor: { gte: start, lt: end },
+    };
+    const grouped = await prisma.cleaningTask.groupBy({
+      by: ["assignedToId", "status"],
+      where,
+      _count: { _all: true },
+    });
+    const assignedIds = [...new Set(grouped.flatMap((row) => row.assignedToId ? [row.assignedToId] : []))];
+    const people = assignedIds.length
+      ? await prisma.user.findMany({ where: { id: { in: assignedIds } }, select: { id: true, name: true } })
+      : [];
+    const names = new Map(people.map((person) => [person.id, person.name]));
+    const totals = { scheduled: 0, pending: 0, inProgress: 0, completed: 0, verified: 0, cancelled: 0 };
+    const employeeRows = new Map<string, { employeeId: string | null; employeeName: string; scheduled: number; pending: number; inProgress: number; completed: number; verified: number; cancelled: number }>();
+    for (const row of grouped) {
+      const count = row._count._all;
+      totals.scheduled += count;
+      const key = row.assignedToId ?? "unassigned";
+      const employee = employeeRows.get(key) ?? {
+        employeeId: row.assignedToId,
+        employeeName: row.assignedToId ? names.get(row.assignedToId) ?? "Former employee" : "Unassigned",
+        scheduled: 0, pending: 0, inProgress: 0, completed: 0, verified: 0, cancelled: 0,
+      };
+      employee.scheduled += count;
+      if (row.status === "PENDING") { totals.pending += count; employee.pending += count; }
+      if (row.status === "IN_PROGRESS") { totals.inProgress += count; employee.inProgress += count; }
+      if (row.status === "COMPLETED") { totals.completed += count; employee.completed += count; }
+      if (row.status === "VERIFIED") { totals.verified += count; employee.verified += count; }
+      if (row.status === "CANCELLED") { totals.cancelled += count; employee.cancelled += count; }
+      employeeRows.set(key, employee);
+    }
+    res.json({ month, totals, employees: [...employeeRows.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName)) });
+    return;
+  }
   const day = businessDate(req);
   const tasks = await prisma.cleaningTask.findMany({
     where: { propertyId: auth(req).propertyId, scheduledFor: day },

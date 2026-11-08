@@ -452,6 +452,13 @@ describe("property-scoped operational workflows", () => {
     const report = await api("manager").get("/reports?date=" + day);
     expect(report.status).toBe(200);
     expect(report.body.verified).toBe(1);
+    expect((await api("cleaner").get("/reports?month=2026-11")).status).toBe(403);
+    expect((await api("manager").get("/reports?month=2026-13")).status).toBe(400);
+    const monthly = await api("manager").get("/reports?month=2026-11");
+    expect(monthly.status).toBe(200);
+    expect(monthly.body.month).toBe("2026-11");
+    expect(monthly.body.totals).toEqual({ scheduled: 2, pending: 1, inProgress: 0, completed: 0, verified: 1, cancelled: 0 });
+    expect(monthly.body.employees).toEqual([expect.objectContaining({ employeeId: people.cleaner, employeeName: "cleaner", scheduled: 2, pending: 1, verified: 1 })]);
     const audit = await api("manager").get("/audit");
     expect(audit.status).toBe(200);
     expect(

@@ -3,24 +3,24 @@ import pg from "pg";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync } from "node:fs";
-import { assertRenderTestTarget } from "./render-test-target.mjs";
+import { assertRenderTestTarget, renderTestClientConfig, RENDER_TEST_DIRECT_HOST } from "./render-test-target.mjs";
 import { assertRenderTestSession, expectedMigrationCatalog, readMigrationCatalog, assertMigrationCatalog } from "./migration-catalog.mjs";
 
 async function main() {
   assertRenderTestTarget(process.env);
-  const client = new pg.Client({
-    connectionString: process.env.DIRECT_URL,
-    connectionTimeoutMillis: 15000,
-  });
+  const client = new pg.Client(renderTestClientConfig(process.env.DIRECT_URL));
   let connected = false;
   try {
     await client.connect();
     connected = true;
-    // Validate the actual server session before reading application rows or running DDL.
+    // Validate client-to-Neon TLS and the actual database session before any
+    // application-row reads or DDL. pg_stat_ssl may be false after Neon proxy TLS termination.
     const session = await client.query(`SELECT current_database() AS database,
       current_schema() AS schema,
+      current_setting('ssl') AS ssl_setting,
       (SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()) AS tls`);
-    assertRenderTestSession(session.rows[0]);
+    const transport = client.connection?.stream;
+    assertRenderTestSession(session.rows[0], transport, RENDER_TEST_DIRECT_HOST);
     const tables = (
       await client.query(
         "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
@@ -98,7 +98,7 @@ async function main() {
 main().catch((error) => {
   // Only these fixed messages are safe to display. Raw driver errors may contain secrets.
   const safe =
-    /^(DATABASE_URL:|DIRECT_URL:|Unexpected public|Existing application|Prisma |Unexpected migrated|Unexpected database, schema, or negotiated TLS; refusing migration$)/.test(
+      /^(DATABASE_URL:|DIRECT_URL:|Unexpected public|Existing application|Prisma |Unexpected migrated|Unexpected database, schema, or verified TLS transport; refusing migration$)/.test(
       error.message,
     );
   console.error(

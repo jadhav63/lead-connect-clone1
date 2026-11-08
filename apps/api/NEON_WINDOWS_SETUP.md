@@ -35,7 +35,7 @@ No password, full connection URL or signing secret belongs in chat, GitHub or Dr
    | DATABASE_URL | ep-old-truth-aror3gey-pooler.c-4.us-west-2.aws.neon.tech |
    | DIRECT_URL | ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech |
 
-   Both must use PostgreSQL, database `/leadconnect`, default/explicit `public` schema and required TLS (`sslmode=require`, `verify-ca` or `verify-full`; prefer `verify-full` for explicit certificate/hostname verification). Keep Neon's `channel_binding=require` if present. Do not add connection override parameters. If the console endpoints differ, stop for independent review; do not edit the guard to make them pass.
+   Both must use PostgreSQL, database `/leadconnect`, default/explicit `public` schema and `sslmode=verify-full` so the connection verifies the endpoint certificate and hostname. Keep Neon's `channel_binding=require` if present. Do not add connection override parameters. If the console endpoints differ, stop for independent review; do not edit the guard to make them pass.
 
 4. Save as the exact filename **.env**, not **.env.txt**, in **apps/api**. Keep it on your own computer outside cloud-synced project folders. Close Notepad. Never run `Get-Content .env`, `type .env`, or paste it into chat. Database migration needs only DATABASE_URL and DIRECT_URL; do not copy bootstrap settings, JWT keys or production secrets from another app.
 
@@ -45,7 +45,7 @@ No password, full connection URL or signing secret belongs in chat, GitHub or Dr
    node scripts/migrate-render-test.mjs --check
    ```
 
-   Continue only if it confirms render-test/leadconnect and no application rows. The guard also verifies the actual connected database, schema and negotiated TLS before inspecting rows or applying migrations. If it fails, stop; share only its fixed safe error message if help is needed.
+   Continue only if it confirms render-test/leadconnect and no application rows. The guard verifies the actual database/schema and the Node TLS socket's encryption and successful certificate authorization before inspecting rows or applying migrations. Neon may terminate client TLS at its connection proxy, so PostgreSQL `pg_stat_ssl` can report false and `current_setting('ssl')` can report `off`; this is accepted only for the allowlisted render-test endpoint and only while Node verifies TLS and the certificate. If these conditions fail, stop; share only its fixed safe error message if help is needed.
 
 6. After preflight passes, run:
 

@@ -370,6 +370,8 @@ export default function App() {
     [checking, setChecking] = useState(true),
     [page, setPage] = useState("Dashboard"),
     [day, setDay] = useState(today()),
+    [reportPeriod, setReportPeriod] = useState<"DAY" | "MONTH">("DAY"),
+    [reportMonth, setReportMonth] = useState(() => today().slice(0, 7)),
     [data, setData] = useState<any>({}),
     [rooms, setRooms] = useState<Room[]>([]),
     [employees, setEmployees] = useState<Employee[]>([]),
@@ -393,13 +395,13 @@ export default function App() {
       .finally(() => setChecking(false));
   }, []);
   const loadSequence = useRef(0);
-  const activeView = useRef({ identity, page, day });
-  activeView.current = { identity, page, day };
+  const activeView = useRef({ identity, page, day, reportPeriod, reportMonth });
+  activeView.current = { identity, page, day, reportPeriod, reportMonth };
   async function load() {
     const view = activeView.current;
-    if (!identity || view.identity !== identity || view.page !== page || view.day !== day) return;
+    if (!identity || view.identity !== identity || view.page !== page || view.day !== day || view.reportPeriod !== reportPeriod || view.reportMonth !== reportMonth) return;
     const sequence = ++loadSequence.current;
-    const current = () => sequence === loadSequence.current && activeView.current.identity === identity && activeView.current.page === page && activeView.current.day === day;
+    const current = () => sequence === loadSequence.current && activeView.current.identity === identity && activeView.current.page === page && activeView.current.day === day && activeView.current.reportPeriod === reportPeriod && activeView.current.reportMonth === reportMonth;
     setLoading(true);
     setError("");
     try {
@@ -407,7 +409,7 @@ export default function App() {
         Dashboard: "/dashboard?date=" + day,
         Housekeeping: "/housekeeping?date=" + day,
         Maintenance: "/maintenance",
-        Reports: "/reports?date=" + day,
+        Reports: reportPeriod === "MONTH" ? "/reports?month=" + reportMonth : "/reports?date=" + day,
       };
       const [rs, ps, people, pageData] = await Promise.all([
         api<Room[]>("/rooms"),
@@ -434,7 +436,7 @@ export default function App() {
     setError("");
     void load();
     return () => { ++loadSequence.current; };
-  }, [identity, page, day]);
+  }, [identity, page, day, reportPeriod, reportMonth]);
   async function run(path: string, method: string, body: unknown) {
     setBusy(true);
     setError("");
@@ -597,7 +599,7 @@ export default function App() {
             </button>
           </div>
         </header>
-        <p className="print-only">{property?.name ?? "Your property"} · {page} · {day} (Arizona)</p>
+        <p className="print-only">{property?.name ?? "Your property"} · {page} · {page === "Reports" && reportPeriod === "MONTH" ? reportMonth : day} (Arizona)</p>
         {success && (
           <div role="status" className="success">
             ✓ {success}
@@ -1237,48 +1239,70 @@ export default function App() {
         )}
         {page === "Reports" && (
           <>
-            <div className="stats">
-              <article className="stat">
-                <small>Completed cleanings</small>
-                <strong>{data.completed ?? 0}</strong>
-              </article>
-              <article className="stat">
-                <small>Verified cleanings</small>
-                <strong>{data.verified ?? 0}</strong>
-              </article>
-            </div>
             <section className="panel">
-              <h2>Cleaning history · {day}</h2>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Room</th>
-                      <th>Employee</th>
-                      <th>Service</th>
-                      <th>Status</th>
-                      <th>Completed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data.cleaningTasks ?? []).map((t: any) => (
-                      <tr key={t.id}>
-                        <td>{t.room.number}</td>
-                        <td>{t.assignedTo?.name ?? "Unassigned"}</td>
-                        <td>{label(t.cleaningType)}</td>
-                        <td>{label(t.status)}</td>
-                        <td>
-                          {t.completedAt
-                            ? new Date(t.completedAt).toLocaleTimeString()
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="top-actions">
+                <div role="group" aria-label="Report period">
+                  <button type="button" className="secondary" aria-pressed={reportPeriod === "DAY"} onClick={() => setReportPeriod("DAY")}>Daily report</button>{" "}
+                  <button type="button" className="secondary" aria-pressed={reportPeriod === "MONTH"} onClick={() => setReportPeriod("MONTH")}>Monthly report</button>
+                </div>
+                {reportPeriod === "MONTH" && (
+                  <label className="control">
+                    <span>Report month</span>
+                    <input type="month" aria-label="Report month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} />
+                  </label>
+                )}
               </div>
             </section>
-            <Performance tasks={data.cleaningTasks ?? []} />
+            {reportPeriod === "MONTH" ? (
+              <>
+                <div className="stats">
+                  <article className="stat"><small>Scheduled</small><strong>{data.totals?.scheduled ?? 0}</strong></article>
+                  <article className="stat"><small>Completed</small><strong>{data.totals?.completed ?? 0}</strong></article>
+                  <article className="stat"><small>Verified</small><strong>{data.totals?.verified ?? 0}</strong></article>
+                  <article className="stat"><small>Cancelled</small><strong>{data.totals?.cancelled ?? 0}</strong></article>
+                </div>
+                <section className="panel">
+                  <h2>Monthly employee cleaning totals · {data.month ?? reportMonth}</h2>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Employee</th><th>Scheduled</th><th>In progress</th><th>Completed</th><th>Verified</th><th>Pending</th><th>Cancelled</th></tr></thead>
+                      <tbody>
+                        {(data.employees ?? []).map((employee: any) => (
+                          <tr key={employee.employeeId ?? "unassigned"}>
+                            <td>{employee.employeeName}</td><td>{employee.scheduled}</td><td>{employee.inProgress}</td><td>{employee.completed}</td><td>{employee.verified}</td><td>{employee.pending}</td><td>{employee.cancelled}</td>
+                          </tr>
+                        ))}
+                        {!data.employees?.length && <tr><td colSpan={7}>No cleaning assignments for this month.</td></tr>}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              </>
+            ) : (
+              <>
+                <div className="stats">
+                  <article className="stat"><small>Completed cleanings</small><strong>{data.completed ?? 0}</strong></article>
+                  <article className="stat"><small>Verified cleanings</small><strong>{data.verified ?? 0}</strong></article>
+                </div>
+                <section className="panel">
+                  <h2>Cleaning history · {day}</h2>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Room</th><th>Employee</th><th>Service</th><th>Status</th><th>Completed</th></tr></thead>
+                      <tbody>
+                        {(data.cleaningTasks ?? []).map((t: any) => (
+                          <tr key={t.id}>
+                            <td>{t.room.number}</td><td>{t.assignedTo?.name ?? "Unassigned"}</td><td>{label(t.cleaningType)}</td><td>{label(t.status)}</td>
+                            <td>{t.completedAt ? new Date(t.completedAt).toLocaleTimeString() : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+                <Performance tasks={data.cleaningTasks ?? []} />
+              </>
+            )}
           </>
         )}
         {page === "Settings" && property && (

@@ -1,10 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error Shared executable Node helper.
-import { assertRenderTestTarget } from '../scripts/render-test-target.mjs';
+import { assertRenderTestTarget, renderTestClientConfig } from '../scripts/render-test-target.mjs';
 function config() {
   const password = randomBytes(24).toString('hex');
-  const direct = new URL('postgresql://test-role@ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech/leadconnect?sslmode=require');
+  const direct = new URL('postgresql://test-role@ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech/leadconnect?sslmode=verify-full');
   direct.password = password;
   const pooled = new URL(direct); pooled.hostname = 'ep-old-truth-aror3gey-pooler.c-4.us-west-2.aws.neon.tech';
   return { DATABASE_URL: pooled.href, DIRECT_URL: direct.href };
@@ -28,4 +28,22 @@ describe('cloud test migration target guard', () => {
     const env = config(); const url = new URL(env.DATABASE_URL); url.hostname = 'production.example.test'; env.DATABASE_URL = url.href;
     expect(() => assertRenderTestTarget(env)).toThrow();
   });
+  it('requires certificate and hostname verification, not encryption alone', () => {
+    const env = config();
+    const url = new URL(env.DIRECT_URL);
+    url.searchParams.set('sslmode', 'require');
+    env.DIRECT_URL = url.href;
+    expect(() => assertRenderTestTarget(env)).toThrow('TLS setting');
+  });
+  it('constructs a verified TLS client config with no connection-string override surface', () => {
+    const config = renderTestClientConfig(configForClient());
+    expect(config.host).toBe('ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech');
+    expect(config.database).toBe('leadconnect');
+    expect(config.ssl).toEqual({ rejectUnauthorized: true });
+    expect(config.enableChannelBinding).toBe(true);
+  });
 });
+
+function configForClient() {
+  return 'postgresql://test-role:fake-test-password@ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech/leadconnect?sslmode=verify-full';
+}

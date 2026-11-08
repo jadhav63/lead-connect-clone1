@@ -49,4 +49,21 @@ describe("dashboard loading and navigation", () => {
     await waitFor(() => expect(screen.queryByText("Loading dashboard…")).toBeNull());
     expect(screen.getByText("Your daily operating picture.")).toBeTruthy();
   });
+  it("loads and displays the property monthly employee cleaning report", async () => {
+    mockAPI.mockImplementation((path: string) => {
+      if (path.startsWith("/reports?month=")) return Promise.resolve({
+        month: path.split("=")[1],
+        totals: { scheduled: 3, completed: 1, verified: 1, cancelled: 0 },
+        employees: [{ employeeId: "cleaner", employeeName: "Test Housekeeper", scheduled: 2, inProgress: 0, completed: 0, verified: 1, pending: 1, cancelled: 0 }],
+      });
+      return Promise.resolve(defaults(path));
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Reports" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Monthly report" }));
+    expect(await screen.findByText(/Monthly employee cleaning totals/)).toBeTruthy();
+    expect(screen.getByText("Test Housekeeper")).toBeTruthy();
+    expect(screen.getByLabelText("Report month")).toBeTruthy();
+    expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\?month=\d{4}-\d{2}$/));
+  });
 });

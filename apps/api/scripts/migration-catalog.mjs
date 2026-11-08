@@ -15,9 +15,24 @@ export function expectedMigrationCatalog(sql) {
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
-export function assertRenderTestSession(session) {
-  if (session.database !== "leadconnect" || session.schema !== "public" || session.tls !== true)
-    throw new Error("Unexpected database, schema, or negotiated TLS; refusing migration");
+export function assertRenderTestSession(session, transport, endpointHost) {
+  const validClientTls = transport?.encrypted === true
+    && transport?.authorized === true
+    && transport?.authorizationError == null;
+  const validBackendObservation = (session?.tls === true && session.ssl_setting === "on")
+    || (session?.tls === false && session.ssl_setting === "off");
+  // Neon can terminate client TLS at its connection proxy. In that topology,
+  // pg_stat_ssl describes the proxy-to-Postgres socket (false) rather than the
+  // Node-to-Neon TLS socket. Accept that observation only for the exact,
+  // independently allowlisted render-test endpoint and only when the actual
+  // Node TLS socket reports encryption plus successful certificate validation.
+  if (session?.database !== "leadconnect"
+      || session?.schema !== "public"
+      || !validClientTls
+      || !validBackendObservation
+      || (session.tls === false && endpointHost !== "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech")) {
+    throw new Error("Unexpected database, schema, or verified TLS transport; refusing migration");
+  }
 }
 export async function readMigrationCatalog(client) {
   const tables = await client.query("SELECT tablename AS name FROM pg_tables WHERE schemaname='public' AND tablename <> '_prisma_migrations'");

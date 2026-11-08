@@ -7,16 +7,24 @@ const root = new URL("../prisma/migrations/", import.meta.url);
 const sql = readdirSync(root).filter((n) => /^\d+_/.test(n)).sort().map((n) => readFileSync(new URL(n + "/migration.sql", root), "utf8")).join("\n");
 const expected = expectedMigrationCatalog(sql);
 describe("migration connection and catalog verification", () => {
-  it("accepts only the actual expected database/schema with negotiated TLS", () => {
-    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", tls: true })).not.toThrow();
+  const verifiedTransport = { encrypted: true, authorized: true, authorizationError: null };
+  const directHost = "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech";
+  it("accepts client-verified TLS when the Postgres backend also reports TLS", () => {
+    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "on", tls: true }, verifiedTransport, directHost)).not.toThrow();
+  });
+  it("accepts Neon proxy TLS termination only with verified client TLS and the exact test endpoint", () => {
+    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, directHost)).not.toThrow();
   });
   it.each([
-    { database: "production", schema: "public", tls: true },
-    { database: "leadconnect", schema: "other", tls: true },
-    { database: "leadconnect", schema: "public", tls: false },
-    { database: "leadconnect", schema: "public", tls: null },
-  ])("refuses an unsafe live session before migration: %j", (session) => {
-    expect(() => assertRenderTestSession(session)).toThrow("refusing migration");
+    [{ database: "production", schema: "public", ssl_setting: "on", tls: true }, verifiedTransport, directHost],
+    [{ database: "leadconnect", schema: "other", ssl_setting: "on", tls: true }, verifiedTransport, directHost],
+    [{ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, { encrypted: false, authorized: false }, directHost],
+    [{ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, { encrypted: true, authorized: false, authorizationError: "CERT_UNTRUSTED" }, directHost],
+    [{ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, "production.example.test"],
+    [{ database: "leadconnect", schema: "public", ssl_setting: "on", tls: false }, verifiedTransport, directHost],
+    [{ database: "leadconnect", schema: "public", ssl_setting: "off", tls: null }, verifiedTransport, directHost],
+  ])("refuses an unsafe live session before migration", (session, transport, endpoint) => {
+    expect(() => assertRenderTestSession(session, transport, endpoint)).toThrow("refusing migration");
   });
   it("derives the reviewed baseline and removes replaced foreign keys", () => {
     expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 14, enums: 11, indexes: 41, foreign_keys: 34 });
