@@ -1,5 +1,5 @@
 # Lead Connect Clone — Project status
-Updated November 08, 2026, 01:07 AM Arizona.
+Updated November 08, 2026, 08:42 UTC.
 
 ## Current state
 Local backend and dashboard verification passed. Neon cloud migration remains incomplete. No backend redeployment, hosted frontend, production rollout or paid service was created.
@@ -26,7 +26,8 @@ Fresh local PostgreSQL 18.6: both migrations applied, status current, no drift, 
 Printable boards now include business date and saved room notes/assignee values; unsaved selection controls are hidden in print. Physical/browser print QA remains pending.
 
 ## GitHub
-Verified source commit: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73
+Latest dashboard code commit: https://github.com/jadhav63/lead-connect-clone1/commit/eea051b58b52ede18708144b31ca0d6d876a9fb3
+Previous migration-guard and dashboard work: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73
 Backend implementation remains 0691f1a89f151ad58b66d9a64d411e74cbc94747. This increment adds migration-runner verification, regression tests, private Windows setup instructions and print-board refinements. Published through the authorized GitHub connector; published tree matches the locally tested tree.
 
 ## Render

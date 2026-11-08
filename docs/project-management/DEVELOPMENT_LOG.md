@@ -54,3 +54,9 @@
 - API behavior is documented in apps/api/OPERATIONS.md. Updated dashboard surfaces.
 - Fresh local migrations/status/drift/catalog passed; backend 72 tests passed; frontend 19 tests passed; both builds passed. Test fixture cleanup left zero users/properties.
 - Neon cloud migration and Render deployment remain blocked by missing private credentials and unverified Render Production traffic designation.
+
+## November 08, 2026, 08:42 UTC — dashboard metrics published
+- Published dashboard arrivals, cleaning progress and property-scoped overdue workload summaries to GitHub main: https://github.com/jadhav63/lead-connect-clone1/commit/eea051b58b52ede18708144b31ca0d6d876a9fb3
+- Updated dashboard API documentation and regression coverage. Backend 72 tests and frontend 19 tests passed; both builds passed. Fresh local migration status/drift/catalog verification passed (14 models, 11 enums, 41 indexes, 34 foreign keys).
+- Neon credential bridge is unavailable in this workspace; DATABASE_URL and DIRECT_URL remain absent. Guarded preflight stops before connecting, so no cloud migration or cloud backend test ran.
+- Render remains at b4f909d with automatic deployment Off. The service has a Production label and test-only traffic designation is unresolved; no deployment was attempted.
