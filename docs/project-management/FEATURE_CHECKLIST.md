@@ -59,3 +59,10 @@ Current Render environment is named Production; test-only designation must be re
 - [ ] Guest/reservation workflows: not represented in current Prisma architecture; requires a separately scoped design and must not connect to SynXis without authorization
 
 GitHub continuation commit: https://github.com/jadhav63/lead-connect-clone1/commit/68ff458d8cd87cb29c9608941a86de79b7d6c666.
+## Staging status — November 8, 2026
+- [x] Free Render staging project/environment and static frontend created; HTTPS sign-in page loads in desktop Chrome.
+- [x] Static site Auto-Deploy Off. Existing Production-labeled API untouched.
+- [ ] Create/deploy isolated staging API with render-test pooled DATABASE_URL; owner credential handoff required.
+- [ ] Cloud database/API workflows, demo account/fictional fixtures, CORS/cookies, mobile/tablet/keyboard/print QA.
+- [x] Latest frontend 21 passed/1 skipped and build passed; API build passed. Latest backend tests were blocked by missing disposable local PostgreSQL; prior 79-pass checkpoint remains historical.
+- [ ] Update the GitHub commit link after publishing this documentation.
