@@ -30,4 +30,4 @@ Prepared November 8, 2026. The production build succeeds. No hosted frontend was
 
 ## Current verification limits
 
-19 web tests passed, including the jsdom-to-real-local-API/database workflow. Both builds passed. Mobile sizing, touch controls, keyboard skip navigation and print styles have been improved in source. These checks do not establish cross-browser rendering, physical print output or cloud cookie/CORS behavior. Those remain deployment acceptance checks.
+Current local verification: 21 web tests pass and one live test skips by default; the enabled jsdom workflow against the real disposable local API/database passes all 22 tests. The backend suite passes 79 tests and both production builds pass. This is not a real browser, cloud CORS/cookie, physical print, or mobile-device acceptance test. Mobile sizing, touch controls, keyboard skip navigation and print styles have been improved in source. These checks do not establish cross-browser rendering, physical print output or cloud cookie/CORS behavior. Those remain deployment acceptance checks.

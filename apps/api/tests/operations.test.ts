@@ -200,6 +200,25 @@ describe("property-scoped operational workflows", () => {
     cleaning = r.body.id;
     expect((await api("front").post("/housekeeping", body)).status).toBe(409);
   });
+  it("delivers assignment notifications only to the assigned employee", async () => {
+    const assigned = await api("cleaner").get("/notifications?unreadOnly=true");
+    expect(assigned.status).toBe(200);
+    expect(assigned.body).toHaveLength(1);
+    expect(assigned.body[0]).toMatchObject({
+      type: "TASK_ASSIGNED",
+      title: "Cleaning assignment",
+      message: "Room 101 was assigned to you.",
+      isRead: false,
+    });
+    const notificationId = assigned.body[0].id;
+    expect((await api("otherCleaner").get("/notifications")).body).toHaveLength(0);
+    expect((await api("otherCleaner").patch(`/notifications/${notificationId}/read`, {})).status).toBe(404);
+    const marked = await api("cleaner").patch(`/notifications/${notificationId}/read`, {});
+    expect(marked.status).toBe(200);
+    expect(marked.body.isRead).toBe(true);
+    expect(marked.body.readAt).toBeTruthy();
+    expect((await api("cleaner").get("/notifications?unreadOnly=true")).body).toHaveLength(0);
+  });
   it("shows housekeepers only their assigned work", async () => {
     expect(
       (await api("cleaner").get("/housekeeping?date=" + day)).body.map(
@@ -256,6 +275,10 @@ describe("property-scoped operational workflows", () => {
     });
     expect(room.status).toBe("CLEAN");
     expect(room.notes).toBe("Fictional note");
+    const cleanedNotice = await api("manager").get("/notifications?unreadOnly=true");
+    expect(cleanedNotice.body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "ROOM_CLEANED", message: "Room 101 was marked cleaned and needs inspection." }),
+    ]));
   });
   it("prevents reassignment of completed cleaning records", async () => {
     expect(
@@ -341,6 +364,12 @@ describe("property-scoped operational workflows", () => {
     });
     expect(r.status).toBe(201);
     ticket = r.body.id;
+    expect((await api("repair").get("/notifications?unreadOnly=true")).body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "TICKET_ASSIGNED", entityId: ticket }),
+    ]));
+    expect((await api("manager").get("/notifications?unreadOnly=true")).body).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "MAINTENANCE_CREATED", entityId: ticket }),
+    ]));
   });
   it("restricts maintenance changes and requires completion notes", async () => {
     expect(

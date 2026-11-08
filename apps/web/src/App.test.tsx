@@ -11,7 +11,7 @@ function deferred<T>() { let resolve!: (v: T) => void; let reject!: (v: Error) =
 function defaults(path: string) {
   if (path === "/auth/me") return identity;
   if (path === "/properties/current") return { name: "Fictional Hotel" };
-  if (["/rooms", "/employees", "/maintenance"].includes(path)) return [];
+  if (["/rooms", "/employees", "/maintenance", "/notifications", "/audit"].includes(path)) return [];
   if (path.startsWith("/housekeeping")) return [];
   return {};
 }
@@ -65,5 +65,26 @@ describe("dashboard loading and navigation", () => {
     expect(screen.getByText("Test Housekeeper")).toBeTruthy();
     expect(screen.getByLabelText("Report month")).toBeTruthy();
     expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\?month=\d{4}-\d{2}$/));
+  });
+  it("shows unread notifications and uses the read action", async () => {
+    mockAPI.mockImplementation((path: string) => Promise.resolve(
+      path === "/notifications" ? [{ id: "notice-1", title: "Cleaning assignment", message: "Room 901 was assigned to you.", type: "TASK_ASSIGNED", createdAt: "2026-11-08T08:00:00.000Z", isRead: false }] : defaults(path),
+    ));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Notifications" }));
+    expect(await screen.findByText("Room 901 was assigned to you.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+    await waitFor(() => expect(mockAPI).toHaveBeenCalledWith("/notifications/notice-1/read", "PATCH", {}));
+  });
+  it("shows and filters the manager activity feed", async () => {
+    mockAPI.mockImplementation((path: string) => Promise.resolve(
+      path === "/audit" ? [{ id: "audit-1", action: "CREATE", entityType: "Room", entityId: "room-1", createdAt: "2026-11-08T08:00:00.000Z", actor: { name: "Test Manager" } }] : defaults(path),
+    ));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Activity" }));
+    expect(await screen.findByText("Recent property activity")).toBeTruthy();
+    expect(screen.getByText("Test Manager")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Filter activity"), { target: { value: "maintenance" } });
+    expect(screen.getByText("No matching activity.")).toBeTruthy();
   });
 });

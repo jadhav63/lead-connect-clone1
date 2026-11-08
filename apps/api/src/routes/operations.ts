@@ -4,7 +4,7 @@ import { prisma } from "../lib/db.js";
 import { HttpError } from "../lib/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { Prisma } from "../generated/prisma/client.js";
-import type { UserRole } from "../generated/prisma/enums.js";
+import type { NotificationType, UserRole } from "../generated/prisma/enums.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -99,6 +99,41 @@ async function audit(
       action,
     },
   });
+}
+async function notifyUsers(
+  tx: Tx,
+  propertyId: string,
+  userIds: Array<string | null | undefined>,
+  type: NotificationType,
+  title: string,
+  message: string,
+  entityId: string,
+) {
+  const recipients = [...new Set(userIds.filter((value): value is string => Boolean(value)))];
+  if (!recipients.length) return;
+  await tx.notification.createMany({
+    data: recipients.map((userId) => ({ propertyId, userId, type, title, message, entityId })),
+  });
+}
+async function notifyRoles(
+  tx: Tx,
+  propertyId: string,
+  roles: UserRole[],
+  type: NotificationType,
+  title: string,
+  message: string,
+  entityId: string,
+) {
+  const memberships = await tx.propertyMembership.findMany({
+    where: {
+      propertyId,
+      isActive: true,
+      role: { in: roles },
+      user: { isActive: true, deletedAt: null },
+    },
+    select: { userId: true },
+  });
+  await notifyUsers(tx, propertyId, memberships.map((item) => item.userId), type, title, message, entityId);
 }
 async function roomState(
   tx: Tx,
@@ -317,7 +352,7 @@ async function createAssignment(
   req: Request,
   data: z.output<typeof assignment>,
 ) {
-  await room(tx, auth(req).propertyId, data.roomId);
+  const assignedRoom = await room(tx, auth(req).propertyId, data.roomId);
   await member(tx, auth(req).propertyId, data.assignedToId, ["HOUSEKEEPING"]);
   const existing = await tx.cleaningTask.findFirst({
     where: {
@@ -337,6 +372,15 @@ async function createAssignment(
     },
   });
   await audit(tx, req, "CleaningTask", created.id, "CREATE");
+  await notifyUsers(
+    tx,
+    auth(req).propertyId,
+    [created.assignedToId],
+    "TASK_ASSIGNED",
+    "Cleaning assignment",
+    `Room ${assignedRoom.number} was assigned to you.`,
+    created.id,
+  );
   return created;
 }
 router.post("/housekeeping", frontDesk, async (req, res) => {
@@ -440,6 +484,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
       await member(tx, auth(req).propertyId, data.assignedToId, [
         "HOUSEKEEPING",
       ]);
+      const taskRoom = await room(tx, auth(req).propertyId, task.roomId);
       if (data.status) {
         const allowed: Record<string, string[]> = {
           PENDING: ["IN_PROGRESS", "CANCELLED"],
@@ -452,9 +497,8 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
           throw new HttpError(409, "Invalid cleaning transition");
         if (["VERIFIED", "CANCELLED"].includes(data.status) && !supervisor)
           throw new HttpError(403, "Supervisor required");
-        const currentRoom = await room(tx, auth(req).propertyId, task.roomId);
         if (
-          ["MAINTENANCE", "OUT_OF_ORDER"].includes(currentRoom.status) &&
+          ["MAINTENANCE", "OUT_OF_ORDER"].includes(taskRoom.status) &&
           data.status !== "CANCELLED"
         )
           throw new HttpError(409, "Room is unavailable for cleaning");
@@ -485,6 +529,18 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         taskId,
         data.status ? "STATUS_CHANGE" : "ASSIGN",
       );
+      if (data.status === "COMPLETED" && task.status !== "COMPLETED")
+        await notifyRoles(
+          tx,
+          auth(req).propertyId,
+          ["ADMIN", "MANAGER", "FRONT_DESK"],
+          "ROOM_CLEANED",
+          "Room ready for inspection",
+          `Room ${taskRoom.number} was marked cleaned and needs inspection.`,
+          taskId,
+        );
+      if (data.assignedToId !== undefined && data.assignedToId !== task.assignedToId && data.assignedToId)
+        await notifyUsers(tx, auth(req).propertyId, [data.assignedToId], "TASK_ASSIGNED", "Cleaning assignment", "A cleaning task was assigned to you.", taskId);
       return updated;
     }, serial),
   );
@@ -551,6 +607,17 @@ router.post("/maintenance", async (req, res) => {
         },
       });
       await audit(tx, req, "MaintenanceTicket", created.id, "CREATE");
+      const supervisors = await tx.propertyMembership.findMany({
+        where: {
+          propertyId: auth(req).propertyId,
+          isActive: true,
+          role: { in: ["ADMIN", "MANAGER", "FRONT_DESK"] },
+          user: { isActive: true, deletedAt: null },
+        },
+        select: { userId: true },
+      });
+      await notifyUsers(tx, auth(req).propertyId, supervisors.map((item) => item.userId), "MAINTENANCE_CREATED", "Maintenance request", "A new maintenance request needs review.", created.id);
+      await notifyUsers(tx, auth(req).propertyId, [created.assignedToId], "TICKET_ASSIGNED", "Maintenance ticket assigned", "A maintenance ticket was assigned to you.", created.id);
       return created;
     }, serial),
   );
@@ -626,6 +693,12 @@ router.patch("/maintenance/:ticketId", async (req, res) => {
         ticketId,
         data.status ? "STATUS_CHANGE" : "UPDATE",
       );
+      const changedAssignee = data.assignedToId !== undefined && data.assignedToId !== ticket.assignedToId;
+      if (changedAssignee && data.assignedToId)
+        await notifyUsers(tx, auth(req).propertyId, [data.assignedToId], "TICKET_ASSIGNED", "Maintenance ticket assigned", "A maintenance ticket was assigned to you.", ticketId);
+      if ((data.status || data.priority !== undefined || data.resolution !== undefined)
+          && ticket.reportedById !== auth(req).userId)
+        await notifyUsers(tx, auth(req).propertyId, [ticket.reportedById], "MAINTENANCE_UPDATED", "Maintenance request updated", "A maintenance request you reported was updated.", ticketId);
       return updated;
     }, serial),
   );
@@ -674,6 +747,7 @@ router.post("/front-desk/tasks", frontDesk, async (req, res) => {
         },
       });
       await audit(tx, req, "FrontDeskTask", task.id, "CREATE");
+      await notifyUsers(tx, auth(req).propertyId, [task.assignedToId], "TASK_ASSIGNED", "Front desk task", "A front desk task was assigned to you.", task.id);
       return task;
     }, serial),
   );
@@ -909,5 +983,36 @@ router.get("/audit", management, async (req, res) => {
       include: { actor: { select: { id: true, name: true } } },
     }),
   );
+});
+router.get("/notifications", async (req, res) => {
+  const unreadOnly = req.query.unreadOnly === undefined
+    ? false
+    : z.enum(["true", "false"]).parse(req.query.unreadOnly) === "true";
+  res.json(await prisma.notification.findMany({
+    where: {
+      propertyId: auth(req).propertyId,
+      userId: auth(req).userId,
+      ...(unreadOnly ? { isRead: false } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  }));
+});
+router.patch("/notifications/:notificationId/read", async (req, res) => {
+  z.object({}).strict().parse(req.body);
+  const notificationId = id.parse(req.params.notificationId);
+  const notification = await prisma.notification.findFirst({
+    where: {
+      id: notificationId,
+      propertyId: auth(req).propertyId,
+      userId: auth(req).userId,
+    },
+  });
+  if (!notification) throw new HttpError(404, "Notification not found");
+  if (notification.isRead) return res.json(notification);
+  res.json(await prisma.notification.update({
+    where: { id: notification.id },
+    data: { isRead: true, readAt: new Date() },
+  }));
 });
 export default router;

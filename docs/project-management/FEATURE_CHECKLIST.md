@@ -34,7 +34,8 @@ Updated November 08, 2026, 02:25 AM Arizona.
 - [x] Migration guard verifies Node TLS encryption and certificate authorization; Neon proxy backend TLS observation is accepted only for the exact test endpoint
 
 ## Partially verified / remaining
-- [ ] Neon cloud schema migration and live disposable session/permission tests (private workspace credentials unavailable; secure transfer mechanism absent)
+- [x] Neon render-test schema migration reported complete by JD on Windows; Prisma validate/deploy/status/diff passed and catalog 14/11/41/34 verified (not rerun here)
+- [ ] Cloud API auth/permission/property-isolation/operations workflow tests and cloud fixture cleanup (private test credentials unavailable in this workspace)
 - [ ] Deploy current backend and web increment to the isolated test environment
 - [ ] Real frontend HTTPS origin, same-site cookie and CORS integration
 - [ ] Full browser rendering/keyboard/accessibility/mobile/print pagination QA
@@ -50,3 +51,9 @@ Updated November 08, 2026, 02:25 AM Arizona.
 Render baseline health/readiness is verified, but this does not prove schema installation or cloud authentication. Mobile remains a documented plan. Do not mark unchecked items complete based only on generated source.
 
 Current Render environment is named Production; test-only designation must be resolved before deployment. Latest verified source: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057
+
+## Current continuation checkpoint — November 8, 2026
+- [x] Property/user-scoped notification read API and assignment/maintenance/cleaning notification events (local API tests)
+- [x] Manager activity feed screen backed by property-scoped audit API (component tests pending final run)
+- [ ] Isolated staging deployment and browser CORS/cookie smoke test (no verified staging service or private deployment secrets)
+- [ ] Guest/reservation workflows: not represented in current Prisma architecture; requires a separately scoped design and must not connect to SynXis without authorization

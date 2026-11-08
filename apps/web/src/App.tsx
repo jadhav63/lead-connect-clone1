@@ -381,6 +381,7 @@ export default function App() {
     [error, setError] = useState(""),
     [success, setSuccess] = useState(""),
     [search, setSearch] = useState(""),
+    [activitySearch, setActivitySearch] = useState(""),
     [filter, setFilter] = useState("ALL"),
     [csvRows, setCsvRows] = useState<ReturnType<typeof parseRoomCSV> | null>(
       null,
@@ -409,6 +410,8 @@ export default function App() {
         Dashboard: "/dashboard?date=" + day,
         Housekeeping: "/housekeeping?date=" + day,
         Maintenance: "/maintenance",
+        Notifications: "/notifications",
+        Activity: "/audit",
         Reports: reportPeriod === "MONTH" ? "/reports?month=" + reportMonth : "/reports?date=" + day,
       };
       const [rs, ps, people, pageData] = await Promise.all([
@@ -522,8 +525,9 @@ export default function App() {
     "Rooms",
     "Housekeeping",
     "Maintenance",
+    "Notifications",
     ...(desk ? ["Front Desk", "Employees"] : []),
-    ...(manager ? ["Reports", "Settings"] : []),
+    ...(manager ? ["Reports", "Activity", "Settings"] : []),
   ];
   const filtered = rooms.filter(
     (r) =>
@@ -531,6 +535,9 @@ export default function App() {
         r.roomType?.toLowerCase().includes(search.toLowerCase())) &&
       (filter === "ALL" || r.occupancyStatus === filter),
   );
+  const notifications = Array.isArray(data) ? data : [];
+  const activityEntries = Array.isArray(data) ? data : [];
+  const visibleActivity = activityEntries.filter((entry: any) => `${entry.actor?.name ?? "System"} ${entry.action ?? "UPDATE"} ${entry.entityType ?? "Record"}`.toLowerCase().includes(activitySearch.toLowerCase()));
   return (
     <div className="shell">
       <a className="skip-link" href="#workspace">Skip to workspace</a>
@@ -1236,6 +1243,56 @@ export default function App() {
               </table>
             </div>
           </>
+        )}
+        {page === "Notifications" && (
+          <section className="panel">
+            <h2>Your notifications</h2>
+            {notifications.length === 0 ? (
+              <p className="muted">You’re all caught up.</p>
+            ) : (
+              <div className="stack">
+                {notifications.map((item: any) => (
+                  <article className="notice" key={item.id}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.message}</p>
+                      <small>{label(item.type ?? "GENERAL")} · {new Date(item.createdAt).toLocaleString()}</small>
+                    </div>
+                    {item.isRead ? <span className="badge">Read</span> : (
+                      <button className="secondary" disabled={busy} onClick={() => run(`/notifications/${item.id}/read`, "PATCH", {})}>Mark read</button>
+                    )}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+        {page === "Activity" && manager && (
+          <section className="panel">
+            <div className="top-actions">
+              <h2>Recent property activity</h2>
+              <label className="control">
+                <span>Filter activity</span>
+                <input aria-label="Filter activity" value={activitySearch} onChange={(e) => setActivitySearch(e.target.value)} placeholder="Person, action, or record type" />
+              </label>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Record</th></tr></thead>
+                <tbody>
+                  {visibleActivity.map((entry: any) => (
+                    <tr key={entry.id}>
+                      <td>{new Date(entry.createdAt).toLocaleString()}</td>
+                      <td>{entry.actor?.name ?? "System"}</td>
+                      <td>{label(entry.action ?? "UPDATE")}</td>
+                      <td>{label(entry.entityType ?? "Record")}</td>
+                    </tr>
+                  ))}
+                  {!visibleActivity.length && <tr><td colSpan={4}>{activityEntries.length ? "No matching activity." : "No activity recorded yet."}</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
         {page === "Reports" && (
           <>

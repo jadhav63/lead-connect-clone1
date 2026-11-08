@@ -75,3 +75,11 @@
 - Enabled the guarded fictional local UI fixture and ran the React workflow through the actual local API and disposable PostgreSQL, including room save, housekeeping assignment/start/complete/verify, daily report and the new monthly employee report. The live UI test passed.
 - Cleanup removed the exact temporary fixture; local database verification returned zero users and zero properties. No Neon or real hotel data was touched.
 - Published UI integration test commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057.
+
+
+## November 8, 2026 — Continue after reported Neon migration
+- JD supplied Windows PowerShell results confirming the guarded `render-test` migration succeeded for branch `br-polished-bread-artfes8a`, `leadconnect`, `public`: Prisma validate/deploy/status/diff passed; exact schema totals 14 models, 11 enums, 41 indexes, 34 foreign keys. Migration was not repeated here.
+- This workspace contains no private test `DATABASE_URL`/`DIRECT_URL`; no cloud API/auth tests or cloud fixture writes were performed. Render remains production-labeled; staging was not deployed.
+- Added property/user-scoped notification APIs and UI for assigned work, maintenance events, and cleaning completion; added manager activity feed UI; documented access and behavior.
+- Added backend regression coverage for assigned notifications, unread/read state, user isolation, housekeeping completion notice, and maintenance creation/assignment notices.
+- Local verification: backend 79 tests passed, backend build passed, disposable local migration status current/no drift, local catalog 14/11/41/34; fixture cleanup leaves 0 users and 0 properties. Frontend default suite: 21 passed, 1 default-skipped live workflow; production TypeScript/build passed. Enabled local React/API/PostgreSQL workflow: 22 passed, covering sign-in, save, housekeeping, notification read, activity feed, daily/monthly reports and sign-out. The local disposable fixture and residual users/properties/notifications were cleaned to zero. No real browser engine or cloud API was tested. Commit IDs will be added after push.

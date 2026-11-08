@@ -67,6 +67,13 @@ describe.skipIf(!enabled)(
       await screen.findByRole("button", { name: "Verify clean" });
       fireEvent.click(screen.getByRole("button", { name: "Verify clean" }));
       await screen.findByText("Verified");
+      fireEvent.click(screen.getByRole("button", { name: "Notifications" }));
+      await screen.findByText("Room 901 was marked cleaned and needs inspection.");
+      fireEvent.click(screen.getByRole("button", { name: "Mark read" }));
+      await screen.findByText("Read");
+      fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+      await screen.findByText("Recent property activity");
+      await screen.findByText("Fictional Test Manager");
       fireEvent.click(screen.getByRole("button", { name: "Reports" }));
       await screen.findByText("Employee cleaning totals");
       await waitFor(() =>

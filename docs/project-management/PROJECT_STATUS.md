@@ -2,9 +2,17 @@
 Updated November 08, 2026, 02:25 AM Arizona.
 
 ## Current state
-Local backend and dashboard verification passed. Neon cloud migration remains incomplete. No backend redeployment, hosted frontend, production rollout or paid service was created.
+## Current checkpoint — November 8, 2026, 09:45 UTC
+JD reports the guarded Neon cloud migration completed successfully on Windows for project `lead-connect-clone`, branch `render-test` (`br-polished-bread-artfes8a`), database `leadconnect`, schema `public`. PowerShell output supplied: Prisma validate, migrate deploy, migrate status and migrate diff passed; catalog verified 14 models, 11 enums, 41 indexes, 34 foreign keys. This is user-reported evidence; this workspace did not repeat or reset the cloud migration.
+
+The current execution workspace has no private `DATABASE_URL`, `DIRECT_URL`, or ignored `apps/api/.env`, so cloud connection, disposable cloud auth/permission/operations tests, and cloud fixture cleanup remain unverified. The existing Render API remains production-labeled and must not be changed or deployed to; no isolated staging endpoint is available. Production remains untouched.
+
+Current local verification: backend 79 tests passed; backend TypeScript/build passed; Prisma status current, no schema drift, local catalog 14/11/41/34, with zero users/properties after fixture cleanup. Frontend default suite: 21 passed, 1 intentionally skipped live-API test; frontend production build passed. The enabled live React/API/PostgreSQL workflow passed all 22 web tests, including login, room save, housekeeping assignment/completion/verification, manager notification read, activity feed, daily/monthly reports, logout; disposable fixtures were removed and local users/properties/notifications returned to zero. This used jsdom against the actual local API/database, not a deployed browser environment.
+
+No backend redeployment, hosted frontend, production rollout or paid service was created.
 
 ## Completed this session
+- The newest November 8 checkpoint above supersedes the historical migration-blocked statements below.
 - Read the five requested GitHub checkpoints and all six existing Drive project documents; inspected both committed migrations.
 - Neon console independently confirms lead-connect-clone / render-test / br-polished-bread-artfes8a. Tables view has leadconnect selected and reports zero public tables. No existing application rows are present in that schema; other databases/schemas were not inspected.
 - Existing guarded preflight executed from apps/api and exited 1: DATABASE_URL: private render-test connection required. DATABASE_URL and DIRECT_URL are absent here. The allowlist requires exact saved test endpoints, leadconnect, public schema and TLS. Runtime connection TLS cannot be freshly verified without private credentials. No cloud migration command was executed after the failed preflight.

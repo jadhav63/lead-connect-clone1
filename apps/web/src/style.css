@@ -706,6 +706,11 @@ thead th {
 }
 
 .print-only { display: none; }
+.stack { display: grid; gap: 12px; }
+.notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid #e2e8ee; }
+.notice p { margin: 6px 0; }
+.notice small { color: #586979; }
+@media (max-width: 700px) { .notice { align-items: flex-start; flex-direction: column; } }
 @media print {
   .print-only { display: block; }
   .screen-only, .room-card .control { display: none !important; }
