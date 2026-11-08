@@ -72,6 +72,12 @@ describe.skipIf(!enabled)(
       await waitFor(() =>
         expect(screen.getByText("1 completed · 1 verified")).toBeTruthy(),
       );
+      fireEvent.click(await screen.findByRole("button", { name: "Monthly report" }));
+      await screen.findByText(/Monthly employee cleaning totals/);
+      await waitFor(() =>
+        expect(screen.getByText("Fictional Housekeeper")).toBeTruthy(),
+      );
+      expect(screen.getByText("Verified", { selector: "small" }).closest("article")?.querySelector("strong")?.textContent).toBe("1");
       fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
       await screen.findByRole("button", { name: "Sign in" });
     }, 30000);
