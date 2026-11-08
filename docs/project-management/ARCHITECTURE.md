@@ -12,7 +12,7 @@ Operational endpoints and permissions: see apps/api/OPERATIONS.md. Families: /pr
 ## Web
 apps/web: React 19 + TypeScript + Vite 7; production static build in dist. Eight pages call the actual backend. In-memory access tokens, HttpOnly refresh cookies, single-flight refresh. No permanent mocks, no localStorage credentials, no public registration. Dates use America/Phoenix. CSV accepts only normalized operational fields and requires an explicit save. No guest data or PMS imports.
 
-Current tests: component/session/CSV tests and an enabled jsdom workflow through the real local API/database. Full browser/CORS/visual/print/device QA remains outstanding. Forms are minimal MVPs; pagination, recurring templates, monthly aggregates, PDF ingestion, photos and live updates need further work.
+Current tests: component/session/CSV tests and an enabled jsdom workflow through the real local API/database. Full browser/CORS/visual/print/device QA remains outstanding. Forms are minimal MVPs; pagination, recurring templates, payroll-minute aggregates, PDF ingestion, photos and live updates need further work.
 
 ## Mobile
 Expo/React Native is not implemented. apps/mobile/README.md specifies API usage, SecureStore, refresh serialization and device-test requirements. Reuse API endpoints and extract shared response contracts when the mobile package is added.
@@ -29,8 +29,13 @@ Cloud preflight is currently blocked by absent private credentials, before any c
 
 ## Secure recovery checkpoint — November 08, 2026, 01:07 AM Arizona
 Verified source: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73. Existing guarded migration runner additionally validates server current_database, current_schema and pg_stat_ssl before row checks/DDL. Application table reads are public-qualified. A shared migration-catalog.mjs derives exact expectations from the two reviewed DDL files, including replaced FKs and primary-key indexes, and verifies named objects and ordered enum labels after Prisma drift checks.
-72 backend/19 frontend tests and both builds passed. Fresh PostgreSQL 18.6 migrations/catalog match 14/11/41/34; zero fixture users/properties remain. Successful negotiated cloud TLS and a complete guarded Neon run remain unverified.
+78 backend tests, 19 frontend tests plus one default-skipped local fixture test, and both builds passed. Fresh PostgreSQL 18.6 migrations/catalog match 14/11/41/34; zero fixture users/properties remain. Successful negotiated cloud TLS and a complete guarded Neon run remain unverified.
 Neon browser metadata is accessible; secrets remain masked and unavailable in the separate execution workspace. Required migration variables: DATABASE_URL and DIRECT_URL only. The private Windows workflow in apps/api/NEON_WINDOWS_SETUP.md avoids chat/Drive credential transfer.
 Print output uses saved notes and assignments plus selected Arizona business date. Browser print pagination/cross-browser QA remains outstanding. Render b4f909d/auto-deploy Off is unchanged; test-only status/traffic and runtime target still require verification.
 
 Dashboard API returns property-scoped groups plus counts for unverified daily work and overdue cleaning/front-desk tasks/open maintenance. Overdue task dates precede the selected business date; same-day work is not labeled overdue without time-of-day rules. Frontend derives arrivals from the property-scoped room list and displays cleaning closed/total progress.
+
+
+## TLS guard and reporting checkpoint — November 08, 2026, 02:18 AM Arizona
+Code commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057. The render-test migration guard requires sslmode=verify-full, explicit Node TLS certificate verification and SCRAM channel binding; it checks the live TLS socket, database and schema before row reads or DDL. A false backend pg_stat_ssl value with ssl=off is accepted only for the exact Neon render-test endpoint when the Node TLS certificate is authorized, consistent with TLS termination at the Neon proxy. Private URLs remain unavailable; cloud preflight exits before connecting.
+The reports API supports daily detail and monthly, property-scoped employee/status totals. React Reports has daily/monthly controls. Local database/API verification: 78 tests, migrations current, no drift, catalog 14/11/41/34 and fixture cleanup; frontend: 19 pass/1 default skip, production build passes. Render status unchanged; no deployment.

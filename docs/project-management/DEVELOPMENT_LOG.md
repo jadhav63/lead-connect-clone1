@@ -60,3 +60,18 @@
 - Updated dashboard API documentation and regression coverage. Backend 72 tests and frontend 19 tests passed; both builds passed. Fresh local migration status/drift/catalog verification passed (14 models, 11 enums, 41 indexes, 34 foreign keys).
 - Neon credential bridge is unavailable in this workspace; DATABASE_URL and DIRECT_URL remain absent. Guarded preflight stops before connecting, so no cloud migration or cloud backend test ran.
 - Render remains at b4f909d with automatic deployment Off. The service has a Production label and test-only traffic designation is unresolved; no deployment was attempted.
+
+
+## November 08, 2026, 02:18 AM Arizona — Neon TLS guard and monthly reports
+- Audited current main, existing migrations, backend/frontend tests and deployment documents. Git ignores apps/api/.env and private variants; no private Neon URLs exist in this workspace.
+- Corrected the migration guard for the reported Neon proxy topology: require sslmode=verify-full, explicitly enable Node TLS certificate authorization and SCRAM channel binding, then verify the connected DB/schema and the actual TLS socket before row inspection or DDL. Backend pg_stat_ssl=false/current_setting ssl=off is interpreted as the PostgreSQL-side proxy socket only for the independently allowlisted render-test endpoint; all other mismatches fail closed. Added regression coverage.
+- Added GET /reports?month=YYYY-MM, grouping cleaning tasks by assigned employee/status and property scope, plus Daily/Monthly selection and month control in React.
+- Backend: 78 tests passed; fresh local PostgreSQL migrations current, no drift, catalog 14/11/41/34 and test fixture cleanup to zero users/properties. Frontend: 19 passed, 1 local API fixture test intentionally skipped by default. Both builds passed.
+- Guarded Neon preflight exited safely before a database connection: DATABASE_URL: private render-test connection required. DIRECT_URL is also absent. No migration command was run against Neon.
+- Published code commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057. Render not deployed: current service is Production-labeled, test-only status unresolved, auto-deploy remains Off.
+
+
+## November 08, 2026, 02:25 AM Arizona — live monthly-report workflow verification
+- Enabled the guarded fictional local UI fixture and ran the React workflow through the actual local API and disposable PostgreSQL, including room save, housekeeping assignment/start/complete/verify, daily report and the new monthly employee report. The live UI test passed.
+- Cleanup removed the exact temporary fixture; local database verification returned zero users and zero properties. No Neon or real hotel data was touched.
+- Published UI integration test commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057.

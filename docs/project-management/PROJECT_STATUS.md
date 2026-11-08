@@ -1,5 +1,5 @@
 # Lead Connect Clone — Project status
-Updated November 08, 2026, 08:42 UTC.
+Updated November 08, 2026, 02:25 AM Arizona.
 
 ## Current state
 Local backend and dashboard verification passed. Neon cloud migration remains incomplete. No backend redeployment, hosted frontend, production rollout or paid service was created.
@@ -21,12 +21,12 @@ Local backend and dashboard verification passed. Neon cloud migration remains in
 Authorized Neon console access is available, but private credential values were not revealed or obtained. No supported secure mechanism transfers them from the connected browser into this separate workspace. Neither database variable nor apps/api/.env exists here. Preflight still exits 1 before connecting; migrations and cloud account tests did not run.
 Independently rechecked project ID gentle-rice-55255812, branch ID br-polished-bread-artfes8a, leadconnect, both exact allowlisted direct/pooled endpoint identities and sslmode=require displayed in the connection dialog while passwords remained masked. Endpoint values are public metadata, not passwords. Actual negotiated cloud TLS is unverified until private credentials exist.
 The minimum private Windows procedure is apps/api/NEON_WINDOWS_SETUP.md. It stores only DATABASE_URL and DIRECT_URL in the ignored apps/api/.env, never in chat/Drive. It does not deliver secrets to this workspace.
-The guard now checks current_database/current_schema and pg_stat_ssl before application-row reads or DDL, explicitly qualifies public tables, and compares exact table/index/FK names plus enum names/ordered values after Prisma drift verification. All existing endpoint/data guards remain intact.
+The guard checks current_database/current_schema, explicitly verifies the live Node TLS socket is encrypted and certificate-authorized, explicitly qualifies public tables, and compares exact table/index/FK names plus enum names/ordered values after Prisma drift verification. pg_stat_ssl=false with PostgreSQL ssl=off is accepted only for the exact allowlisted Neon test endpoint when client-side certificate verification passes; the reported values indicate Neon proxy TLS termination before PostgreSQL. This workspace did not independently repeat that cloud observation because private credentials are absent. All existing endpoint/data guards remain intact.
 Fresh local PostgreSQL 18.6: both migrations applied, status current, no drift, full named catalog matched 14/11/41/34; 72 backend and 19 frontend tests passed, both builds passed. Local TLS-session helper checks were tested; a successful full guarded Neon run is not claimed. Fixture cleanup left zero users/properties.
 Printable boards now include business date and saved room notes/assignee values; unsaved selection controls are hidden in print. Physical/browser print QA remains pending.
 
 ## GitHub
-Latest dashboard code commit: https://github.com/jadhav63/lead-connect-clone1/commit/eea051b58b52ede18708144b31ca0d6d876a9fb3
+Latest verified code commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057
 Previous migration-guard and dashboard work: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73
 Backend implementation remains 0691f1a89f151ad58b66d9a64d411e74cbc94747. This increment adds migration-runner verification, regression tests, private Windows setup instructions and print-board refinements. Published through the authorized GitHub connector; published tree matches the locally tested tree.
 
@@ -39,3 +39,11 @@ Runtime logs show listening on port 10000 and a pg TLS-mode future-semantics war
 Private test-only DATABASE_URL/DIRECT_URL in an ignored local environment, PostgreSQL network connectivity, guarded cloud preflight/migration, cloud disposable workflow checks, verified test-only Render designation, manual backend deployment, isolated same-site HTTPS frontend/API setup, actual browser acceptance checks. See NEXT_SESSION.md for exact order.
 
 Existing hotel systems, Neon production and real employee/guest data remain untouched. All six existing Drive management files are updated in place for each checkpoint and read back for equality; no IDs, folders or sharing settings change. This session completion report records the latest synchronization result.
+
+
+## November 08, 2026, 02:18 AM Arizona — verified TLS guard and monthly report
+- Published source: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057
+- Migration guard now requires sslmode=verify-full and an explicitly certificate-verifying Node TLS client; server-side pg_stat_ssl is treated as the backend socket observation and false/off is allowed only for the hard-coded render-test Neon endpoint. Failure remains closed for wrong database/schema/host or unverified client TLS.
+- Added monthly property-scoped cleaning report totals by employee/status and a Daily/Monthly Reports view. API integration and frontend component coverage added.
+- Verification: 78 backend tests passed; 19 frontend tests passed and 1 live-API UI test intentionally skipped in default run; backend TypeScript/build and frontend TypeScript/production build passed. Fresh local DB migration status/drift/catalog passed (14 models/11 enums/41 indexes/34 FKs); the live React/API/PostgreSQL workflow passed including monthly reports, and cleanup left zero fixture users/properties.
+- Neon preflight rerun: exited before connecting because DATABASE_URL is missing; DIRECT_URL is also absent. No cloud migrations or account tests ran. Render remains b4f909d, auto-deploy Off, Production-labeled with test-only use unresolved; no deployment.

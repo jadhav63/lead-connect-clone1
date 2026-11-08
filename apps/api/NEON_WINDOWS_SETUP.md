@@ -35,7 +35,7 @@ No password, full connection URL or signing secret belongs in chat, GitHub or Dr
    | DATABASE_URL | ep-old-truth-aror3gey-pooler.c-4.us-west-2.aws.neon.tech |
    | DIRECT_URL | ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech |
 
-   Both must use PostgreSQL, database `/leadconnect`, default/explicit `public` schema and `sslmode=verify-full` so the connection verifies the endpoint certificate and hostname. Keep Neon's `channel_binding=require` if present. Do not add connection override parameters. If the console endpoints differ, stop for independent review; do not edit the guard to make them pass.
+   Neon may show `sslmode=require` in its connection dialog. In the local `.env` only, change that query parameter to `sslmode=verify-full` for both URLs; keep the exact endpoint, database, username/password, and any `channel_binding=require` unchanged. The migration guard rejects `require` because it requires certificate and hostname verification. Both URLs must use PostgreSQL, database `/leadconnect`, default/explicit `public` schema. Do not add connection override parameters. If the console endpoints differ, stop for independent review; do not edit the guard to make them pass.
 
 4. Save as the exact filename **.env**, not **.env.txt**, in **apps/api**. Keep it on your own computer outside cloud-synced project folders. Close Notepad. Never run `Get-Content .env`, `type .env`, or paste it into chat. Database migration needs only DATABASE_URL and DIRECT_URL; do not copy bootstrap settings, JWT keys or production secrets from another app.
 

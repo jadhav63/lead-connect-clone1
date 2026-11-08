@@ -1,12 +1,12 @@
 # Next session
-Updated November 08, 2026, 08:42 UTC.
+Updated November 08, 2026, 02:25 AM Arizona.
 
 ## Exact stopping point
-Latest dashboard code commit: https://github.com/jadhav63/lead-connect-clone1/commit/eea051b58b52ede18708144b31ca0d6d876a9fb3
+Latest verified code commit: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057
 Prior migration-guard checkpoint: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73
 Backend implementation: 0691f1a. Render live: b4f909d. Automatic deploy remains Off. No cloud migration or frontend service created.
 Neon console confirms render-test / br-polished-bread-artfes8a / leadconnect with zero public tables. Guarded --check stopped before connecting: private DATABASE_URL missing; DIRECT_URL also absent. Earlier networking failures do not establish current connectivity, which remains untested without credentials.
-Local results: 72 backend + 19 web tests passed (including the actual local API/database UI workflow); both builds passed; both migrations applied to fresh PostgreSQL 18.6; no drift; 14 models / 11 enums / 41 indexes / 34 FKs; fixtures cleaned to zero users/properties.
+Local results: 78 backend tests passed + 19 frontend tests passed (1 live API fixture test skipped by default) (including the actual local API/database UI workflow); both builds passed; both migrations applied to fresh PostgreSQL 18.6; no drift; 14 models / 11 enums / 41 indexes / 34 FKs; fixtures cleaned to zero users/properties. The local React workflow including monthly reports also passed with a disposable API/database fixture.
 
 ## Credential access status
 Authorized Neon test console metadata verified again: project gentle-rice-55255812, render-test ID, database, direct and pooled endpoints, required TLS setting. Passwords stayed masked. No secure bridge or approved secret facility is available to deliver them into this workspace. Both private variables and local .env are absent; preflight exits before connecting. Do not reveal or paste credentials into tool output/chat or extract them from Render/other applications.
@@ -17,7 +17,7 @@ Start with apps/api/NEON_WINDOWS_SETUP.md on JD's Windows computer. Privately co
 1. Pull main. Inspect both migrations and scripts/render-test-target.mjs against the Neon console's render-test branch identity and endpoint names. Never target production.
 2. In apps/api run npm ci. Configure DATABASE_URL (pooled test endpoint) and DIRECT_URL (direct test endpoint) privately in ignored .env. Confirm leadconnect, public schema and required TLS. Never paste secret URLs into chat, GitHub or Drive.
 3. Run node scripts/migrate-render-test.mjs --check. If it fails, document the fixed safe message; do not bypass the guard or run SQL migrations through the console.
-4. Only after preflight passes, run node scripts/migrate-render-test.mjs. Record migrate status/drift and catalog checks; expected local baseline is 14 models, 11 enums, 41 indexes and 34 FKs. The strengthened guard verifies actual negotiated TLS/database/schema before writes and exact named catalog/enum values after migrations. Refuse pre-existing application rows.
+4. Only after preflight passes, run node scripts/migrate-render-test.mjs. Record migration status/drift and catalog checks; expected local baseline is 14 models, 11 enums, 41 indexes and 34 FKs. The strengthened guard verifies the live Node TLS socket encryption and certificate authorization plus actual database/schema before writes. Neon may terminate client TLS at its proxy, so backend `pg_stat_ssl` can be false; this is accepted only on the exact render-test endpoint when the client certificate is authorized. After migration, verify exact named catalog objects and enum values. Refuse pre-existing application rows.
 5. Verify the Render service's test-only designation and traffic. The dashboard currently groups lead-connect-api under Production, so do not deploy based solely on prior handoff descriptions. Review environment targets privately without exposing values. Keep automatic deployment Off.
 6. After schema/compatibility checks, run disposable cloud authentication, permissions, rooms, housekeeping, maintenance, front desk, refresh/logout and audit checks on the compatible test backend. If old deployed code cannot cover new endpoints, record that limitation before the manual verified backend deployment, then run full cloud smoke/workflow checks. Delete only exact fixtures created by that test run.
 7. Manually deploy the verified backend only when all deployment gates are met; confirm commit, logs, health, readiness and operations. No paid services.
@@ -30,7 +30,7 @@ apps/api: npm ci; configure disposable loopback leadconnect_test; npm run db:dep
 apps/web: npm ci; npm run build; npm test. Default run is 18 passed + 1 intentionally skipped; enable LOCAL_UI_FIXTURE_FILE and VITE_API_BASE only for the guarded fictional local fixture to run all 19.
 The helper apps/api/scripts/local-web-fixture.mjs refuses remote databases and must not be used for Neon/cloud fixture creation.
 
-Dashboard now includes arrivals, cleaning progress and overdue task summaries. Next product priorities: date-range/monthly reports, housekeeping workload balancing and configurable time estimates, maintenance recurring tasks, audit history UI, and Expo implementation.
+Dashboard now includes arrivals, cleaning progress and overdue task summaries. Reports now include a property-scoped monthly employee/status rollup. Next product priorities: housekeeping workload balancing and configurable time estimates, maintenance recurring tasks, audit history UI, and Expo implementation.
 
 ## Outstanding product work
 Monthly reports, service rotations/minutes, PDF ingestion, photo storage, live updates, pagination, production security/recovery and Expo/device implementation remain separate work. Current source includes eight operational web pages; full rendered QA is not yet claimed.

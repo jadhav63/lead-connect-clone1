@@ -1,5 +1,5 @@
 # Security and deployment
-Updated November 08, 2026, 01:07 AM Arizona. This is the current consolidated checkpoint.
+Updated November 08, 2026, 02:25 AM Arizona. This is the current consolidated checkpoint.
 
 ## Protected systems and scope
 No production rollout, paid service or real staff use is authorized. Never target Neon production, housekeeping-portal-3, the existing housekeeping application, hotel website, SynXis, or real guest/employee records. Do not delete databases or enable automatic deployment.
@@ -11,11 +11,11 @@ There is no supported secure transfer mechanism from the connected browser to th
 
 ## Guarded migration
 After independent target verification and private local setup in apps/api, run npm ci, then node scripts/migrate-render-test.mjs --check. Only after success run node scripts/migrate-render-test.mjs. Never bypass through SQL Editor or weaken the allowlist. Preflight this session exited 1 before connecting: DATABASE_URL: private render-test connection required. No Neon migrations or cloud fixture accounts/tests ran.
-The existing runner now also checks the actual connected database/schema and negotiated TLS via pg_stat_ssl before any application rows/DDL, explicitly reads public tables and refuses existing rows. It runs Prisma validate/deploy/status/drift and exact named table/index/FK plus ordered enum checks. Target/schema/required-TLS/override/data restrictions remain intact. Baseline: 14 models/11 enums/41 indexes/34 foreign keys. Prefer explicit verify-full in private configuration; never disable TLS or certificate checks.
+The runner checks the actual connected database/schema and the Node TLS socket before any application rows/DDL, explicitly reads public tables and refuses existing rows. It requires sslmode=verify-full, `rejectUnauthorized: true`, successful certificate authorization and SCRAM channel binding. The reported Neon endpoint shows pg_stat_ssl=false and ssl=off on the PostgreSQL backend; this is consistent with client TLS ending at the Neon connection proxy. The guard accepts this backend observation only for the exact allowlisted test endpoint and only when the Node-to-Neon TLS socket is encrypted and certificate-authorized. It runs Prisma validate/deploy/status/drift and exact named table/index/FK plus ordered enum checks. Target/schema/required-TLS/override/data restrictions remain intact. Baseline: 14 models/11 enums/41 indexes/34 foreign keys. Private connection strings must use explicit sslmode=verify-full; never disable TLS or certificate checks.
 
 ## Verification and source
-Latest verified source: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73
-Fresh local PostgreSQL 18.6: both migrations applied; status current; no drift; complete expected catalog verified. 72 backend tests (12 new guard/catalog regressions), 19 frontend tests including actual local API/database workflow, and both builds passed. Exact fixtures removed; zero users/properties remain. These results do not establish a successful full cloud guard run or cloud authentication.
+Latest verified source: https://github.com/jadhav63/lead-connect-clone1/commit/7cafe8312405cc87d48bf7e106c9a032ae437057
+Fresh local PostgreSQL 18.6: both migrations applied; status current; no drift; complete expected catalog verified. 78 backend tests, 19 frontend tests (1 actual local API/database fixture UI test skipped by default), and both builds passed. Monthly employee/status reporting is covered by API integration and component tests; the full local React/API/PostgreSQL workflow also passed, and the disposable fixture was cleaned up. Exact fixtures removed; zero users/properties remain. These results do not establish a successful full cloud guard run or cloud authentication.
 The private Windows guide contains placeholders and public metadata only. No test credentials are embedded in web assets, logs or documentation. Frontend tokens remain in memory; refresh cookies retain HttpOnly/Strict/Secure rules. Print refinements use saved operational notes/assignments, not unsaved controls. Browser/device/physical print QA remains pending.
 
 ## Render safety gate
@@ -28,3 +28,13 @@ Free isolated frontend settings: apps/web/TEST_DEPLOYMENT.md. No hosted frontend
 Before real data: restricted runtime database role, shared/account throttling, token-family/race handling, full database membership constraints, trusted proxy, monitoring, recovery and backups. Expo/device work remains preparation only. Preserve existing hotel systems throughout.
 
 Dashboard metrics use authenticated property scope; overdue counts query the same property and do not include guest or employee personal details. Changes are local and committed; no cloud deployment was performed.
+
+
+## Production release checklist (not a deployment approval)
+1. Complete the guarded migration on the independently verified render-test Neon branch; record migration status, drift and catalog output. Never use production for test setup.
+2. Verify staging service ownership, environment, database endpoint, actual traffic, auto-deploy Off and secret access controls before any manual staging deployment. Confirm deployed commit, logs, health, readiness and end-to-end disposable workflows.
+3. Use separate least-privilege runtime credentials, strong unique JWT keys, HTTPS-only origins, reviewed CORS and cookie settings. Rotate any credential confirmed exposed through the credential owner’s secure console process.
+4. Verify backup/restore, monitoring, error handling, rate limits, account recovery and incident contacts. Finish browser, keyboard, mobile, print and accessibility acceptance checks with fictional test data.
+5. Confirm the production schema and migration plan, preserve a rollback path, and obtain JD's explicit approval before production deployment. Keep auto-deploy disabled unless separately approved.
+
+Latest local check: backend 78 passed; frontend 19 passed/1 skipped; both builds and local migration/drift/catalog checks passed. Neon preflight still stops before connecting because DATABASE_URL and DIRECT_URL are not available here. No Neon migration or Render deployment was performed.
