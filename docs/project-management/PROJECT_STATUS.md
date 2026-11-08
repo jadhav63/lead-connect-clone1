@@ -77,3 +77,6 @@ Security action required: The Render environment settings accessibility result e
 
 ## November 8 — TLS enforcement improvement
 Production API configuration now rejects `sslmode=require` and `verify-ca`; it requires `sslmode=verify-full`. Targeted environment tests passed 2/2, backend Prisma/TypeScript build passed, and frontend 21 tests passed/1 skipped with production build. Full backend tests remain blocked by the absent local disposable PostgreSQL service. This source change is not yet deployed; Render staging remains on `cb9add7` because Auto-Deploy is Off.
+
+## Housekeeping reporting increment — November 8, 2026
+Monthly employee reports now include estimated minutes for completed/verified cleaning and measured elapsed minutes for tasks with valid start/completion timestamps. Estimates use fixed defaults (checkout 30, stayover 15, full 30, deep 60, arrival touchup 15); they are not yet manager-configurable and do not include pet-room extra time. Tracked elapsed includes all time between Start and Complete because pause/break tracking is not implemented. API helper/config tests: 4 passed; API build passed; frontend 21 passed/1 skipped and build passed. The integration test asserting monthly aggregation was added but not run without PostgreSQL. This code is committed next and will require a manual staging deploy after the credential reset.

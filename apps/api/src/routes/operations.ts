@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 8900)
+Total output lines: 1036
+
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/db.js";
@@ -5,6 +8,7 @@ import { HttpError } from "../lib/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import type { NotificationType, UserRole } from "../generated/prisma/enums.js";
+import { elapsedCleaningMinutes, estimatedCleaningMinutes } from "../services/cleaning-time.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -466,206 +470,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
       const task = await tx.cleaningTask.findFirst({
         where: { id: taskId, propertyId: auth(req).propertyId },
       });
-      if (!task) throw new HttpError(404, "Cleaning task not found");
-      const supervisor = manager(req) || auth(req).roles.includes("FRONT_DESK");
-      if (
-        !supervisor &&
-        (!auth(req).roles.includes("HOUSEKEEPING") ||
-          task.assignedToId !== auth(req).userId ||
-          data.assignedToId !== undefined ||
-          data.instructions !== undefined)
-      )
-        throw new HttpError(403, "Forbidden");
-      if (
-        ["COMPLETED", "VERIFIED", "CANCELLED"].includes(task.status) &&
-        data.assignedToId !== undefined
-      )
-        throw new HttpError(409, "Completed tasks cannot be reassigned");
-      await member(tx, auth(req).propertyId, data.assignedToId, [
-        "HOUSEKEEPING",
-      ]);
-      const taskRoom = await room(tx, auth(req).propertyId, task.roomId);
-      if (data.status) {
-        const allowed: Record<string, string[]> = {
-          PENDING: ["IN_PROGRESS", "CANCELLED"],
-          IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-          COMPLETED: ["VERIFIED"],
-          VERIFIED: [],
-          CANCELLED: [],
-        };
-        if (!allowed[task.status].includes(data.status))
-          throw new HttpError(409, "Invalid cleaning transition");
-        if (["VERIFIED", "CANCELLED"].includes(data.status) && !supervisor)
-          throw new HttpError(403, "Supervisor required");
-        if (
-          ["MAINTENANCE", "OUT_OF_ORDER"].includes(taskRoom.status) &&
-          data.status !== "CANCELLED"
-        )
-          throw new HttpError(409, "Room is unavailable for cleaning");
-        if (data.status === "IN_PROGRESS")
-          await roomState(tx, req, task.roomId, "IN_PROGRESS");
-        if (data.status === "COMPLETED")
-          await roomState(tx, req, task.roomId, "INSPECTION");
-        if (data.status === "VERIFIED")
-          await roomState(tx, req, task.roomId, "CLEAN");
-        if (data.status === "CANCELLED" && task.status === "IN_PROGRESS")
-          await roomState(tx, req, task.roomId, "DIRTY");
-      }
-      const updated = await tx.cleaningTask.update({
-        where: { id: taskId },
-        data: {
-          ...data,
-          ...(data.status === "IN_PROGRESS" ? { startedAt: new Date() } : {}),
-          ...(data.status === "COMPLETED" ? { completedAt: new Date() } : {}),
-          ...(data.status === "VERIFIED"
-            ? { verifiedAt: new Date(), verifiedById: auth(req).userId }
-            : {}),
-        },
-      });
-      await audit(
-        tx,
-        req,
-        "CleaningTask",
-        taskId,
-        data.status ? "STATUS_CHANGE" : "ASSIGN",
-      );
-      if (data.status === "COMPLETED" && task.status !== "COMPLETED")
-        await notifyRoles(
-          tx,
-          auth(req).propertyId,
-          ["ADMIN", "MANAGER", "FRONT_DESK"],
-          "ROOM_CLEANED",
-          "Room ready for inspection",
-          `Room ${taskRoom.number} was marked cleaned and needs inspection.`,
-          taskId,
-        );
-      if (data.assignedToId !== undefined && data.assignedToId !== task.assignedToId && data.assignedToId)
-        await notifyUsers(tx, auth(req).propertyId, [data.assignedToId], "TASK_ASSIGNED", "Cleaning assignment", "A cleaning task was assigned to you.", taskId);
-      return updated;
-    }, serial),
-  );
-});
-
-router.get("/maintenance", async (req, res) => {
-  const where: Prisma.MaintenanceTicketWhereInput = {
-    propertyId: auth(req).propertyId,
-  };
-  if (!manager(req) && !auth(req).roles.includes("FRONT_DESK"))
-    where.OR = [
-      { assignedToId: auth(req).userId },
-      { reportedById: auth(req).userId },
-    ];
-  res.json(
-    await prisma.maintenanceTicket.findMany({
-      where,
-      include: {
-        room: true,
-        assignedTo: { select: userSelect },
-        events: { orderBy: { createdAt: "asc" }, take: 100 },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
-  );
-});
-router.post("/maintenance", async (req, res) => {
-  const data = z
-    .object({
-      title: z.string().trim().min(1).max(200),
-      description: text,
-      roomId: id.nullable().optional(),
-      assignedToId: id.nullable().optional(),
-      priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
-    })
-    .strict()
-    .parse(req.body);
-  if (
-    data.assignedToId &&
-    !manager(req) &&
-    !auth(req).roles.includes("FRONT_DESK")
-  )
-    throw new HttpError(403, "Supervisor assignment required");
-  res.status(201).json(
-    await prisma.$transaction(async (tx) => {
-      if (data.roomId) await room(tx, auth(req).propertyId, data.roomId);
-      await member(tx, auth(req).propertyId, data.assignedToId, [
-        "MAINTENANCE",
-      ]);
-      const created = await tx.maintenanceTicket.create({
-        data: {
-          ...data,
-          propertyId: auth(req).propertyId,
-          reportedById: auth(req).userId,
-        },
-      });
-      await tx.ticketEvent.create({
-        data: {
-          ticketId: created.id,
-          actorId: auth(req).userId,
-          toStatus: "OPEN",
-          comment: "Ticket created",
-        },
-      });
-      await audit(tx, req, "MaintenanceTicket", created.id, "CREATE");
-      const supervisors = await tx.propertyMembership.findMany({
-        where: {
-          propertyId: auth(req).propertyId,
-          isActive: true,
-          role: { in: ["ADMIN", "MANAGER", "FRONT_DESK"] },
-          user: { isActive: true, deletedAt: null },
-        },
-        select: { userId: true },
-      });
-      await notifyUsers(tx, auth(req).propertyId, supervisors.map((item) => item.userId), "MAINTENANCE_CREATED", "Maintenance request", "A new maintenance request needs review.", created.id);
-      await notifyUsers(tx, auth(req).propertyId, [created.assignedToId], "TICKET_ASSIGNED", "Maintenance ticket assigned", "A maintenance ticket was assigned to you.", created.id);
-      return created;
-    }, serial),
-  );
-});
-router.patch("/maintenance/:ticketId", async (req, res) => {
-  const ticketId = id.parse(req.params.ticketId);
-  const data = z
-    .object({
-      assignedToId: id.nullable().optional(),
-      status: z.enum(["OPEN", "IN_PROGRESS", "CLOSED"]).optional(),
-      resolution: z.string().trim().max(2000).optional(),
-      priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional(),
-      comment: z.string().max(2000).optional(),
-    })
-    .strict()
-    .parse(req.body);
-  res.json(
-    await prisma.$transaction(async (tx) => {
-      const ticket = await tx.maintenanceTicket.findFirst({
-        where: { id: ticketId, propertyId: auth(req).propertyId },
-      });
-      if (!ticket) throw new HttpError(404, "Ticket not found");
-      const supervisor = manager(req) || auth(req).roles.includes("FRONT_DESK");
-      if (
-        !supervisor &&
-        (!auth(req).roles.includes("MAINTENANCE") ||
-          ticket.assignedToId !== auth(req).userId ||
-          data.assignedToId !== undefined ||
-          data.priority !== undefined)
-      )
-        throw new HttpError(403, "Forbidden");
-      await member(tx, auth(req).propertyId, data.assignedToId, [
-        "MAINTENANCE",
-      ]);
-      if (data.status) {
-        const allowed: Record<string, string[]> = {
-          OPEN: ["IN_PROGRESS", "CLOSED"],
-          IN_PROGRESS: ["CLOSED"],
-          CLOSED: ["OPEN"],
-        };
-        if (!allowed[ticket.status].includes(data.status))
-          throw new HttpError(409, "Invalid ticket transition");
-        if (data.status === "OPEN" && !supervisor)
-          throw new HttpError(403, "Supervisor required to reopen");
-        if (data.status === "CLOSED" && !data.resolution)
-          throw new HttpError(400, "Completion notes required");
-      }
-      const { comment, ...changes } = data;
+      if (!task) throw new HttpError(40…1900 tokens truncated…nt, ...changes } = data;
       const updated = await tx.maintenanceTicket.update({
         where: { id: ticketId },
         data: {
@@ -925,33 +730,50 @@ router.get("/reports", management, async (req, res) => {
       propertyId: auth(req).propertyId,
       scheduledFor: { gte: start, lt: end },
     };
-    const grouped = await prisma.cleaningTask.groupBy({
-      by: ["assignedToId", "status"],
+    const monthlyTasks = await prisma.cleaningTask.findMany({
       where,
-      _count: { _all: true },
+      select: {
+        assignedToId: true,
+        status: true,
+        cleaningType: true,
+        startedAt: true,
+        completedAt: true,
+      },
     });
-    const assignedIds = [...new Set(grouped.flatMap((row) => row.assignedToId ? [row.assignedToId] : []))];
+    const assignedIds = [...new Set(monthlyTasks.flatMap((task) => task.assignedToId ? [task.assignedToId] : []))];
     const people = assignedIds.length
       ? await prisma.user.findMany({ where: { id: { in: assignedIds } }, select: { id: true, name: true } })
       : [];
     const names = new Map(people.map((person) => [person.id, person.name]));
-    const totals = { scheduled: 0, pending: 0, inProgress: 0, completed: 0, verified: 0, cancelled: 0 };
-    const employeeRows = new Map<string, { employeeId: string | null; employeeName: string; scheduled: number; pending: number; inProgress: number; completed: number; verified: number; cancelled: number }>();
-    for (const row of grouped) {
-      const count = row._count._all;
-      totals.scheduled += count;
-      const key = row.assignedToId ?? "unassigned";
+    const totals = { scheduled: 0, pending: 0, inProgress: 0, completed: 0, verified: 0, cancelled: 0, estimatedCompletedMinutes: 0, trackedElapsedMinutes: 0, timedTaskCount: 0 };
+    const employeeRows = new Map<string, { employeeId: string | null; employeeName: string; scheduled: number; pending: number; inProgress: number; completed: number; verified: number; cancelled: number; estimatedCompletedMinutes: number; trackedElapsedMinutes: number; timedTaskCount: number }>();
+    for (const task of monthlyTasks) {
+      totals.scheduled += 1;
+      const key = task.assignedToId ?? "unassigned";
       const employee = employeeRows.get(key) ?? {
-        employeeId: row.assignedToId,
-        employeeName: row.assignedToId ? names.get(row.assignedToId) ?? "Former employee" : "Unassigned",
+        employeeId: task.assignedToId,
+        employeeName: task.assignedToId ? names.get(task.assignedToId) ?? "Former employee" : "Unassigned",
         scheduled: 0, pending: 0, inProgress: 0, completed: 0, verified: 0, cancelled: 0,
+        estimatedCompletedMinutes: 0, trackedElapsedMinutes: 0, timedTaskCount: 0,
       };
-      employee.scheduled += count;
-      if (row.status === "PENDING") { totals.pending += count; employee.pending += count; }
-      if (row.status === "IN_PROGRESS") { totals.inProgress += count; employee.inProgress += count; }
-      if (row.status === "COMPLETED") { totals.completed += count; employee.completed += count; }
-      if (row.status === "VERIFIED") { totals.verified += count; employee.verified += count; }
-      if (row.status === "CANCELLED") { totals.cancelled += count; employee.cancelled += count; }
+      employee.scheduled += 1;
+      if (task.status === "PENDING") { totals.pending += 1; employee.pending += 1; }
+      if (task.status === "IN_PROGRESS") { totals.inProgress += 1; employee.inProgress += 1; }
+      if (task.status === "COMPLETED") { totals.completed += 1; employee.completed += 1; }
+      if (task.status === "VERIFIED") { totals.verified += 1; employee.verified += 1; }
+      if (task.status === "CANCELLED") { totals.cancelled += 1; employee.cancelled += 1; }
+      if (task.status === "COMPLETED" || task.status === "VERIFIED") {
+        const estimate = estimatedCleaningMinutes(task.cleaningType);
+        const elapsed = elapsedCleaningMinutes(task.startedAt, task.completedAt);
+        totals.estimatedCompletedMinutes += estimate;
+        employee.estimatedCompletedMinutes += estimate;
+        if (elapsed !== null) {
+          totals.trackedElapsedMinutes += elapsed;
+          employee.trackedElapsedMinutes += elapsed;
+          totals.timedTaskCount += 1;
+          employee.timedTaskCount += 1;
+        }
+      }
       employeeRows.set(key, employee);
     }
     res.json({ month, totals, employees: [...employeeRows.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName)) });

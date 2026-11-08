@@ -75,3 +75,7 @@ GitHub continuation commit: https://github.com/jadhav63/lead-connect-clone1/comm
 
 - [x] Production environment validation now requires PostgreSQL `sslmode=verify-full` (targeted regression tests pass).
 - [ ] Deploy this TLS enforcement to staging only after private Neon password rotation and DATABASE_URL correction.
+
+- [x] Monthly report source now shows default estimated minutes vs tracked elapsed minutes; fixed estimates are documented and pure tests pass.
+- [ ] Verify monthly time aggregation with disposable PostgreSQL/API integration tests and then against fictional staging records.
+- [ ] Make estimates manager-configurable; add pet-room supplement and pause/resume-aware actual time.

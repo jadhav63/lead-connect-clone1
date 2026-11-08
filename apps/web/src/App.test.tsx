@@ -53,8 +53,8 @@ describe("dashboard loading and navigation", () => {
     mockAPI.mockImplementation((path: string) => {
       if (path.startsWith("/reports?month=")) return Promise.resolve({
         month: path.split("=")[1],
-        totals: { scheduled: 3, completed: 1, verified: 1, cancelled: 0 },
-        employees: [{ employeeId: "cleaner", employeeName: "Test Housekeeper", scheduled: 2, inProgress: 0, completed: 0, verified: 1, pending: 1, cancelled: 0 }],
+        totals: { scheduled: 3, completed: 1, verified: 1, cancelled: 0, estimatedCompletedMinutes: 30, trackedElapsedMinutes: 27, timedTaskCount: 1 },
+        employees: [{ employeeId: "cleaner", employeeName: "Test Housekeeper", scheduled: 2, inProgress: 0, completed: 0, verified: 1, pending: 1, cancelled: 0, estimatedCompletedMinutes: 30, trackedElapsedMinutes: 27, timedTaskCount: 1 }],
       });
       return Promise.resolve(defaults(path));
     });
@@ -64,6 +64,9 @@ describe("dashboard loading and navigation", () => {
     expect(await screen.findByText(/Monthly employee cleaning totals/)).toBeTruthy();
     expect(screen.getByText("Test Housekeeper")).toBeTruthy();
     expect(screen.getByLabelText("Report month")).toBeTruthy();
+    expect(screen.getByText("Estimated completed minutes")).toBeTruthy();
+    expect(screen.getByText("Tracked elapsed minutes")).toBeTruthy();
+    expect(screen.getAllByText("27")).toHaveLength(2);
     expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/reports\?month=\d{4}-\d{2}$/));
   });
   it("shows unread notifications and uses the read action", async () => {

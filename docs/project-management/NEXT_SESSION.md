@@ -33,3 +33,5 @@ After secure rotation: verify CORS/cookies from the frontend; create only fictio
 
 ## Code change awaiting safe staging deployment
 A new production configuration guard requires `sslmode=verify-full`; its targeted tests (2) and backend build pass. The deployed staging API is still `cb9add7` and accepts the old `require` URL because Auto-Deploy is Off. First reset the exposed Neon render-test password privately, update the pooled staging DATABASE_URL with `sslmode=verify-full`, then manually deploy the reviewed latest main commit and recheck readiness. Do not migrate or create data before confirming the new secret and commit.
+
+After private credential rotation and manual staging deployment, verify the new monthly report aggregation against fictional API fixtures. It reports estimated versus tracked elapsed minutes; defaults are fixed and elapsed time currently includes breaks/pauses. Configurable defaults, pet-room extra estimate and pause/resume timer tracking remain future work.

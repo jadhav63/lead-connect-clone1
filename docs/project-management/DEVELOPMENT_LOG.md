@@ -93,3 +93,6 @@ Security action required: The Render environment settings accessibility result e
 
 ## November 8, 2026 — Require verified database TLS
 Tightened production startup validation to require `sslmode=verify-full`. Regression tests reject `require`, `verify-ca`, and missing TLS mode. Targeted environment suite: 2 passed; backend build passed with loopback-only placeholder; frontend: 21 passed/1 skipped and build passed. Full backend suite cannot run here without disposable PostgreSQL. No deployment was triggered; Render staging Auto-Deploy is Off.
+
+## November 8, 2026 — Monthly cleaning time reporting
+Added fixed default estimated minutes and tracked elapsed minutes to monthly property-scoped employee reports. Only completed/verified tasks contribute to time totals; elapsed is counted only when start/completion form a valid interval. The UI explains that pauses/breaks are not removed. Added pure unit tests and API integration assertions. Four API helper/config tests passed, API build passed, frontend 21 tests passed/1 skipped and production build passed. Integration database test was not run because no local disposable PostgreSQL is available.
