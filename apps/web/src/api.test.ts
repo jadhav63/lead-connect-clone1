@@ -65,3 +65,12 @@ describe("session transport", () => {
     await expect(api("/rooms")).rejects.toThrow("Sign in");
   });
 });
+
+it("explains network failures without showing raw transport diagnostics", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("fetch failed")));
+  await expect(login("fixture@example.test", fixturePassword, "FICTIONAL")).rejects.toThrow("Cannot reach the server");
+});
+it("handles a proxy HTML error without showing a JSON parser error", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ status: 502, ok: false, json: async () => { throw new SyntaxError("Unexpected token <"); } }));
+  await expect(login("fixture@example.test", fixturePassword, "FICTIONAL")).rejects.toThrow("unreadable response");
+});

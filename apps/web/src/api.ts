@@ -1,4 +1,13 @@
 const base = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
+async function request(url: string, init: RequestInit) {
+  try { return await fetch(url, init); }
+  catch { throw new Error("Cannot reach the server. Check your connection and try again."); }
+}
+async function readResponse(res: Response) {
+  if (res.status === 204) return null;
+  try { return await res.json(); }
+  catch { throw new Error("The server returned an unreadable response. Please try again."); }
+}
 let token = "";
 let refreshing: Promise<boolean> | null = null;
 export function forgetSession() {
@@ -9,19 +18,19 @@ export async function login(
   password: string,
   propertyCode: string,
 ) {
-  const res = await fetch(base + "/api/auth/login", {
+  const res = await request(base + "/api/auth/login", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, propertyCode }),
   });
-  const body = await res.json();
+  const body = await readResponse(res);
   if (!res.ok) throw new Error(body.error ?? "Login failed");
   token = body.accessToken;
 }
 async function refresh() {
   if (!refreshing)
-    refreshing = fetch(base + "/api/auth/refresh", {
+    refreshing = request(base + "/api/auth/refresh", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -32,7 +41,7 @@ async function refresh() {
           token = "";
           return false;
         }
-        token = (await res.json()).accessToken;
+        token = (await readResponse(res)).accessToken;
         return true;
       })
       .finally(() => {
@@ -46,7 +55,7 @@ export async function api<T = any>(
   data?: unknown,
 ): Promise<T> {
   const send = () =>
-    fetch(base + "/api" + path, {
+    request(base + "/api" + path, {
       method,
       credentials: "include",
       headers: {
@@ -60,7 +69,7 @@ export async function api<T = any>(
   let res = await send();
   if (res.status === 401 && path !== "/auth/logout" && (await refresh()))
     res = await send();
-  const body = res.status === 204 ? null : await res.json();
+  const body = await readResponse(res);
   if (!res.ok) throw new Error(body?.error ?? "Request failed");
   return body as T;
 }

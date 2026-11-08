@@ -30,3 +30,7 @@ The Render API still runs the earlier authentication-only commit until a verifie
 Production build passed; 13 unit/component/session tests plus 1 jsdom-to-real-local-API workflow passed. This verifies DOM interactions and actual HTTP/database writes, but does not replace full browser rendering, CORS/cookie, keyboard, screen-reader, mobile-device, or print QA. No screenshot/visual QA is claimed.
 
 Still pending: full browser coverage of every page/form, selection of real test domains, cloud smoke testing, monthly report rollups, PDF ingestion, live push updates, photo upload storage, and Expo client/device testing. Backend /audit supplies recent audit history; a dedicated audit viewer can be added later.
+
+## November 8, 2026 verification
+
+19 tests passed with the live-local workflow enabled; backend 60 tests passed on disposable PostgreSQL 18.6. Both builds passed. Page loads now ignore stale results after navigation/date changes, announce loading, hide incomplete/stale content, and clear failed-load messages on Retry. Room controls lock during saves. Transport failures and unreadable proxy responses have readable errors. Added a keyboard skip link, narrow-screen controls and print pagination CSS. Full rendered browser/mobile/print and cloud cookie/CORS QA is still pending. See TEST_DEPLOYMENT.md for prepared free test hosting settings and blocking prerequisites.

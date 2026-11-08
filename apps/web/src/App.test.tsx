@@ -1,0 +1,52 @@
+// @vitest-environment jsdom
+import React from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import App from "./App";
+const { mockAPI } = vi.hoisted(() => ({ mockAPI: vi.fn() }));
+vi.mock("./api", () => ({ api: mockAPI, login: vi.fn(), logout: vi.fn() }));
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
+const identity = { user: { id: "test-manager", name: "Fictional Manager" }, roles: ["MANAGER"], propertyId: "test-property" };
+function deferred<T>() { let resolve!: (v: T) => void; let reject!: (v: Error) => void; const promise = new Promise<T>((a,b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
+function defaults(path: string) {
+  if (path === "/auth/me") return identity;
+  if (path === "/properties/current") return { name: "Fictional Hotel" };
+  if (["/rooms", "/employees", "/maintenance"].includes(path)) return [];
+  if (path.startsWith("/housekeeping")) return [];
+  return {};
+}
+describe("dashboard loading and navigation", () => {
+  it("announces loading and ignores a previous page response after navigation", async () => {
+    const old = deferred<unknown>();
+    mockAPI.mockImplementation((path: string) => path.startsWith("/dashboard") ? old.promise : Promise.resolve(defaults(path)));
+    render(<App />);
+    await screen.findByText("Loading dashboard…");
+    fireEvent.click(screen.getByRole("button", { name: "Housekeeping" }));
+    await waitFor(() => expect(screen.queryByText("Loading housekeeping…")).toBeNull());
+    await act(async () => { old.resolve({ openMaintenance: 900 }); });
+    expect(screen.getByRole("heading", { name: "Housekeeping", level: 1 })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("No cleaning assignments for this date.")).toBeTruthy();
+  });
+  it("ignores an old failure after the new page has loaded", async () => {
+    const old = deferred<unknown>();
+    mockAPI.mockImplementation((path: string) => path.startsWith("/dashboard") ? old.promise : Promise.resolve(defaults(path)));
+    render(<App />);
+    await screen.findByText("Loading dashboard…");
+    fireEvent.click(screen.getByRole("button", { name: "Rooms" }));
+    await waitFor(() => expect(screen.queryByText("Loading rooms…")).toBeNull());
+    await act(async () => { old.reject(new Error("Old page failed")); });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+  it("offers Retry after a failed load and clears the error on success", async () => {
+    let fail = true;
+    mockAPI.mockImplementation((path: string) => path.startsWith("/dashboard") && fail ? Promise.reject(new Error("Temporary test failure")) : Promise.resolve(defaults(path)));
+    render(<App />);
+    await screen.findByRole("alert");
+    fail = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Loading dashboard…")).toBeNull());
+    expect(screen.getByText("Your daily operating picture.")).toBeTruthy();
+  });
+});

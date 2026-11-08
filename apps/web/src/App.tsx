@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, login, logout } from "./api";
 import { parseRoomCSV } from "./csv";
 import {
@@ -101,7 +101,7 @@ export function RoomCard({
     }
   }
   return (
-    <article className={"room-card " + room.occupancyStatus.toLowerCase()}>
+    <article aria-label={"Room " + room.number} aria-busy={saving} className={"room-card " + room.occupancyStatus.toLowerCase()}>
       <header>
         <div>
           <strong>{room.number}</strong>
@@ -121,6 +121,7 @@ export function RoomCard({
             <Select
               name={"Room " + room.number + " status"}
               value={status}
+              disabled={saving}
               items={options(roomStatuses)}
               onChange={(s) => {
                 setStatus(s);
@@ -130,6 +131,7 @@ export function RoomCard({
             <Select
               name={"Room " + room.number + " occupancy"}
               value={occupancy}
+              disabled={saving}
               items={options(occupancyStatuses)}
               onChange={(s) => {
                 setOccupancy(s);
@@ -142,6 +144,7 @@ export function RoomCard({
             <textarea
               aria-label={"Room " + room.number + " notes"}
               maxLength={2000}
+              disabled={saving}
               value={notes}
               onChange={(e) => {
                 setNotes(e.target.value);
@@ -370,6 +373,7 @@ export default function App() {
     [employees, setEmployees] = useState<Employee[]>([]),
     [property, setProperty] = useState<any>(null),
     [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [success, setSuccess] = useState(""),
     [search, setSearch] = useState(""),
@@ -386,36 +390,48 @@ export default function App() {
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
+  const loadSequence = useRef(0);
+  const activeView = useRef({ identity, page, day });
+  activeView.current = { identity, page, day };
   async function load() {
-    if (!identity) return;
+    const view = activeView.current;
+    if (!identity || view.identity !== identity || view.page !== page || view.day !== day) return;
+    const sequence = ++loadSequence.current;
+    const current = () => sequence === loadSequence.current && activeView.current.identity === identity && activeView.current.page === page && activeView.current.day === day;
+    setLoading(true);
+    setError("");
     try {
-      const [rs, ps] = await Promise.all([
-        api<Room[]>("/rooms"),
-        api("/properties/current"),
-      ]);
-      setRooms(rs);
-      setProperty(ps);
-      if (desk) setEmployees(await api<Employee[]>("/employees"));
       const route: Record<string, string> = {
         Dashboard: "/dashboard?date=" + day,
         Housekeeping: "/housekeeping?date=" + day,
         Maintenance: "/maintenance",
         Reports: "/reports?date=" + day,
       };
-      if (route[page]) setData(await api(route[page]));
-      if (page === "Front Desk")
-        setData({
-          tasks: await api("/front-desk/tasks?date=" + day),
-          handovers: await api("/front-desk/handovers?date=" + day),
-        });
+      const [rs, ps, people, pageData] = await Promise.all([
+        api<Room[]>("/rooms"),
+        api("/properties/current"),
+        desk ? api<Employee[]>("/employees") : Promise.resolve([]),
+        page === "Front Desk"
+          ? Promise.all([api("/front-desk/tasks?date=" + day), api("/front-desk/handovers?date=" + day)])
+              .then(([tasks, handovers]) => ({ tasks, handovers }))
+          : route[page] ? api(route[page]) : Promise.resolve({}),
+      ]);
+      if (!current()) return;
+      setRooms(rs);
+      setProperty(ps);
+      setEmployees(people);
+      setData(pageData);
     } catch (e) {
-      setError((e as Error).message);
+      if (current()) setError((e as Error).message);
+    } finally {
+      if (current()) setLoading(false);
     }
   }
   useEffect(() => {
     setData({});
     setError("");
     void load();
+    return () => { ++loadSequence.current; };
   }, [identity, page, day]);
   async function run(path: string, method: string, body: unknown) {
     setBusy(true);
@@ -513,6 +529,7 @@ export default function App() {
   );
   return (
     <div className="shell">
+      <a className="skip-link" href="#workspace">Skip to workspace</a>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">LC</span>
@@ -553,7 +570,7 @@ export default function App() {
           </button>
         </div>
       </aside>
-      <main className="workspace">
+      <main className="workspace" id="workspace" aria-busy={loading}>
         <header className="topbar">
           <div>
             <small>{property?.name ?? "Your property"}</small>
@@ -571,7 +588,7 @@ export default function App() {
             </label>
             <button
               className="secondary"
-              disabled={busy}
+              disabled={busy || loading}
               onClick={() => void load()}
             >
               Refresh
@@ -591,6 +608,8 @@ export default function App() {
             </button>
           </div>
         )}
+        {loading && <p role="status" className="loading-message">Loading {page.toLowerCase()}…</p>}
+        <div hidden={loading || !!error}>
         {page === "Dashboard" && (
           <>
             <p className="section-intro">Your daily operating picture.</p>
@@ -1281,6 +1300,7 @@ export default function App() {
             </section>
           </>
         )}
+        </div>
         <footer className="workspace-footer">
           Lead Connect · Separate hotel operations test project · No PMS
           connection

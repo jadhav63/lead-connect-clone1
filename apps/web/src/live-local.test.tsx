@@ -36,12 +36,12 @@ describe.skipIf(!enabled)(
         { timeout: 15000 },
       );
       fireEvent.click(screen.getByRole("button", { name: "Rooms" }));
-      const status = await screen.findByLabelText("Room 901 status");
+      const status = await screen.findByRole("combobox", { name: "Room 901 status" });
       fireEvent.change(status, { target: { value: "CLEAN" } });
       fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
       await screen.findByText("✓ Saved successfully");
       fireEvent.click(screen.getByRole("button", { name: "Housekeeping" }));
-      const assigned = await screen.findByLabelText("Assign room 901");
+      const assigned = await screen.findByRole("combobox", { name: "Assign room 901" });
       await waitFor(() =>
         expect(
           within(assigned).getByText("Fictional Housekeeper"),

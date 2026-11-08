@@ -682,3 +682,25 @@ thead th {
     background: white;
   }
 }
+
+/* Preserve controls at narrow widths and high browser zoom. */
+[hidden] { display: none !important; }
+.skip-link { position: fixed; top: -80px; left: 12px; z-index: 10; padding: 12px; background: white; color: #152d41; }
+.skip-link:focus { top: 12px; }
+.loading-message { padding: 24px; color: #586979; }
+.room-card, .panel, .metric { overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .room-grid { grid-template-columns: minmax(0, 1fr); }
+  .top-actions, .profile { flex-wrap: wrap; }
+  .top-actions > .control { flex: 1; }
+  .room-card select, input, textarea { font-size: 16px; }
+  button, select { min-height: 44px; }
+}
+@media print {
+  .skip-link, .loading-message { display: none !important; }
+  .room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .room-card, tr { break-inside: avoid; }
+  thead { display: table-header-group; }
+  textarea { border: 0; resize: none; }
+  .badge, .room-card { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
