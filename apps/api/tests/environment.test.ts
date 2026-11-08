@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { environmentSchema } from '../src/config/env.js';
+import { proxyTrustSetting } from '../src/config/proxy.js';
 describe('production configuration', () => {
   const config = {
     NODE_ENV: 'production',
@@ -17,5 +18,16 @@ describe('production configuration', () => {
   });
   it('rejects short signing secrets', () => {
     expect(environmentSchema.safeParse({ ...config, JWT_ACCESS_SECRET: randomBytes(8).toString('hex') }).success).toBe(false);
+  });
+});
+
+describe('reverse proxy trust', () => {
+  it('trusts only the immediate Render proxy in production', () => {
+    expect(proxyTrustSetting('production')).toBe(1);
+  });
+
+  it('does not trust forwarded headers outside production', () => {
+    expect(proxyTrustSetting('test')).toBe(false);
+    expect(proxyTrustSetting('development')).toBe(false);
   });
 });
