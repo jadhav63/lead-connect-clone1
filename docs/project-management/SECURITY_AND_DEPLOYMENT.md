@@ -26,3 +26,5 @@ After migration, verify compatibility and test-only traffic/target before a manu
 ## Frontend and remaining hardening
 Free isolated frontend settings: apps/web/TEST_DEPLOYMENT.md. No hosted frontend, DNS change or staff release exists. Select same-site HTTPS origins or a reviewed same-origin proxy; exact CORS_ORIGIN required. Do not weaken Strict cookies to work around unrelated origins.
 Before real data: restricted runtime database role, shared/account throttling, token-family/race handling, full database membership constraints, trusted proxy, monitoring, recovery and backups. Expo/device work remains preparation only. Preserve existing hotel systems throughout.
+
+Dashboard metrics use authenticated property scope; overdue counts query the same property and do not include guest or employee personal details. Changes are local and committed; no cloud deployment was performed.

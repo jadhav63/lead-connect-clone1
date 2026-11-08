@@ -628,6 +628,10 @@ export default function App() {
                   rooms.filter((r) => r.occupancyStatus === "OCCUPIED").length,
                 ],
                 [
+                  "Arrivals",
+                  rooms.filter((r) => r.occupancyStatus === "ARRIVAL").length,
+                ],
+                [
                   "Vacant",
                   rooms.filter((r) => r.occupancyStatus === "VACANT").length,
                 ],
@@ -661,7 +665,22 @@ export default function App() {
                   Unverified handovers
                   <strong>{data.unverifiedHandovers ?? "—"}</strong>
                 </div>
+                <div className="metric">
+                  Overdue open work
+                  <strong>{data.overdue?.total ?? "—"}</strong>
+                </div>
+                {data.overdue && (
+                  <p className="muted">
+                    {data.overdue.cleaning} cleaning · {data.overdue.frontDesk} front desk · {data.overdue.maintenance} maintenance from earlier business dates
+                  </p>
+                )}
                 <h3>Cleaning today</h3>
+                <div className="metric">
+                  <span>Progress</span>
+                  <strong>
+                    {(data.cleaning ?? []).filter((s: any) => ["COMPLETED", "VERIFIED", "CANCELLED"].includes(s.status)).reduce((n: number, s: any) => n + s._count, 0)} / {(data.cleaning ?? []).reduce((n: number, s: any) => n + s._count, 0)} closed
+                  </strong>
+                </div>
                 {(data.cleaning ?? []).map((s: any) => (
                   <div className="metric" key={s.status}>
                     <span>{label(s.status)}</span>

@@ -48,3 +48,9 @@
 - Render settings rechecked: b4f909d, automatic deploy Off, Production environment label. Real-user traffic and secret database target remain unverified; no configuration change or deployment.
 - Published source commit: https://github.com/jadhav63/lead-connect-clone1/commit/dea2aaf443df360f60c630e7a29fa986a6bf0c73. Six existing Drive documents are synchronized in place and read back; completion report records actual sync result.
 - Remaining: private configuration on a supported computer/facility, successful guarded Neon run, cloud disposable workflow tests, verified Render test-only target/traffic, isolated frontend and browser acceptance QA.
+
+## November 8, 2026 — dashboard metrics increment
+- Added arrival count, housekeeping closed/total progress and property-scoped overdue counts for prior-date cleaning/front desk work and open maintenance due before the selected day.
+- API behavior is documented in apps/api/OPERATIONS.md. Updated dashboard surfaces.
+- Fresh local migrations/status/drift/catalog passed; backend 72 tests passed; frontend 19 tests passed; both builds passed. Test fixture cleanup left zero users/properties.
+- Neon cloud migration and Render deployment remain blocked by missing private credentials and unverified Render Production traffic designation.

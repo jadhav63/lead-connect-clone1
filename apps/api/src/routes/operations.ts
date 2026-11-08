@@ -787,7 +787,7 @@ router.post(
 router.get("/dashboard", async (req, res) => {
   const propertyId = auth(req).propertyId;
   const day = businessDate(req);
-  const [rooms, cleaning, tickets, frontDeskTasks, handovers] =
+  const [rooms, cleaning, tickets, frontDeskTasks, handovers, overdueCleaning, overdueFrontDesk, overdueMaintenance] =
     await prisma.$transaction([
       prisma.room.groupBy({
         by: ["status", "occupancyStatus"],
@@ -814,6 +814,15 @@ router.get("/dashboard", async (req, res) => {
       prisma.shiftHandover.count({
         where: { propertyId, businessDate: day, verifiedAt: null },
       }),
+      prisma.cleaningTask.count({
+        where: { propertyId, scheduledFor: { lt: day }, status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED"] } },
+      }),
+      prisma.frontDeskTask.count({
+        where: { propertyId, scheduledFor: { lt: day }, status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED"] } },
+      }),
+      prisma.maintenanceTicket.count({
+        where: { propertyId, status: { not: "CLOSED" }, dueAt: { lt: new Date(`${day.toISOString().slice(0, 10)}T00:00:00.000Z`) } },
+      }),
     ]);
   res.json({
     date: day,
@@ -822,6 +831,12 @@ router.get("/dashboard", async (req, res) => {
     openMaintenance: tickets,
     unverifiedFrontDeskTasks: frontDeskTasks,
     unverifiedHandovers: handovers,
+    overdue: {
+      cleaning: overdueCleaning,
+      frontDesk: overdueFrontDesk,
+      maintenance: overdueMaintenance,
+      total: overdueCleaning + overdueFrontDesk + overdueMaintenance,
+    },
   });
 });
 router.get("/reports", management, async (req, res) => {

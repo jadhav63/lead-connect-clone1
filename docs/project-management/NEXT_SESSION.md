@@ -29,5 +29,7 @@ apps/api: npm ci; configure disposable loopback leadconnect_test; npm run db:dep
 apps/web: npm ci; npm run build; npm test. Default run is 18 passed + 1 intentionally skipped; enable LOCAL_UI_FIXTURE_FILE and VITE_API_BASE only for the guarded fictional local fixture to run all 19.
 The helper apps/api/scripts/local-web-fixture.mjs refuses remote databases and must not be used for Neon/cloud fixture creation.
 
+Dashboard now includes arrivals, cleaning progress and overdue task summaries. Next product priorities: date-range/monthly reports, housekeeping workload balancing and configurable time estimates, maintenance recurring tasks, audit history UI, and Expo implementation.
+
 ## Outstanding product work
 Monthly reports, service rotations/minutes, PDF ingestion, photo storage, live updates, pagination, production security/recovery and Expo/device implementation remain separate work. Current source includes eight operational web pages; full rendered QA is not yet claimed.

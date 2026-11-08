@@ -29,6 +29,8 @@ Updated November 08, 2026, 01:07 AM Arizona.
 - [x] Named table/index/FK and ordered enum catalog checks; 12 new tests
 - [x] Print business date and saved room notes/housekeeping assignees
 
+- [x] Dashboard arrivals, cleaning progress and database-backed overdue counts
+
 ## Partially verified / remaining
 - [ ] Neon cloud schema migration and live disposable session/permission tests (private workspace credentials unavailable; secure transfer mechanism absent)
 - [ ] Deploy current backend and web increment to the isolated test environment

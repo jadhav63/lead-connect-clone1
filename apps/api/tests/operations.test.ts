@@ -462,6 +462,13 @@ describe("property-scoped operational workflows", () => {
     const dashboard = await api("front").get("/dashboard?date=" + day);
     expect(dashboard.status).toBe(200);
     expect(dashboard.body.openMaintenance).toBe(0);
+    expect(dashboard.body.overdue).toEqual({
+      cleaning: 0,
+      frontDesk: 0,
+      maintenance: 0,
+      total: 0,
+    });
+    expect(Array.isArray(dashboard.body.cleaning)).toBe(true);
   });
   it("does not leak password hashes in employee responses", async () => {
     const r = await api("front").get("/employees");

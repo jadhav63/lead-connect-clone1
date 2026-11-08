@@ -13,6 +13,10 @@ Local backend and dashboard verification passed. Neon cloud migration remains in
 - Dashboard: guarded page/date loads, accessible loading state and Retry, no stale page responses, room controls disabled during save, understandable network/non-JSON errors, keyboard skip link, narrow-screen touch controls and print CSS.
 - Prepared free isolated frontend settings in apps/web/TEST_DEPLOYMENT.md. Full browser/mobile/print and cloud cookie/CORS QA remain unverified.
 
+## Dashboard data completeness — November 8, 2026
+- Dashboard now displays arrivals and cleaning closure progress. The API returns property-scoped overdue counts for cleaning, front-desk tasks and maintenance due before the selected business date.
+- Backend 72 tests, frontend 19 tests, and both builds passed. Migration status/drift and exact local catalog remain verified.
+
 ## Secure connection recovery
 Authorized Neon console access is available, but private credential values were not revealed or obtained. No supported secure mechanism transfers them from the connected browser into this separate workspace. Neither database variable nor apps/api/.env exists here. Preflight still exits 1 before connecting; migrations and cloud account tests did not run.
 Independently rechecked project ID gentle-rice-55255812, branch ID br-polished-bread-artfes8a, leadconnect, both exact allowlisted direct/pooled endpoint identities and sslmode=require displayed in the connection dialog while passwords remained masked. Endpoint values are public metadata, not passwords. Actual negotiated cloud TLS is unverified until private credentials exist.
