@@ -43,3 +43,5 @@ The reports API supports daily detail and monthly, property-scoped employee/stat
 
 ## Current environment status — November 8, 2026
 The schema migration is reported complete on Neon render-test (14 models, 11 enums, 41 indexes, 34 FKs). This workspace did not rerun it and lacks private test connection strings, so cloud API workflow verification remains open. Backend local suite: 79 passed; frontend default: 21 passed/1 skipped; enabled local UI/API/database workflow: 22 passed; builds passed. Existing Render is Production-labeled; no staging service is verified or deployed.
+
+Current notification/activity implementation and tests: https://github.com/jadhav63/lead-connect-clone1/commit/68ff458d8cd87cb29c9608941a86de79b7d6c666.

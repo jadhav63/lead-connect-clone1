@@ -7,7 +7,7 @@ Neon cloud migration was completed by JD on Windows on November 8, 2026. Do not 
 This workspace has no private test `DATABASE_URL`, `DIRECT_URL`, or ignored `apps/api/.env`; no cloud API connection, auth/workflow tests, or cloud fixture cleanup were run here. Never ask JD to paste a full URL/password into chat. If cloud tests are needed from this workspace, provision variables through an approved private secret facility; otherwise run the documented disposable workflows on secured Windows and record exact outcomes without transferring secrets.
 
 ## Current source and verification
-Latest pre-continuation GitHub main checkpoint: `3d644788816ca76f0bb69a3dba3e072a72159fb7`. The continuation adds notification endpoints/UI and manager activity feed; its commit link will be recorded after push. Backend: 79 tests passed; backend TypeScript/build passed; local disposable DB migrations current/no drift, catalog 14/11/41/34, zero fixture users/properties after cleanup. Frontend tests/build are pending final checkpoint.
+Latest pre-continuation GitHub main checkpoint: `3d644788816ca76f0bb69a3dba3e072a72159fb7`. The continuation adds notification endpoints/UI and manager activity feed: https://github.com/jadhav63/lead-connect-clone1/commit/68ff458d8cd87cb29c9608941a86de79b7d6c666. Backend: 79 tests passed; backend TypeScript/build passed; local disposable DB migrations current/no drift, catalog 14/11/41/34, zero fixture users/properties after cleanup. Frontend tests/build are pending final checkpoint.
 
 ## Next steps
 1. Finish frontend tests/build and, if feasible, run the enabled local API/database browser workflow; record the results.
