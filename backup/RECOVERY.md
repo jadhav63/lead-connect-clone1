@@ -11,3 +11,5 @@
 Cloud restore has not been performed. `restore-test.ps1` intentionally stops pending implementation/review and approval.
 
 Current implementation status: streaming authenticated decrypt exists in `crypto.mjs`; the PowerShell restore harness validates a strict isolated database naming convention but intentionally stops before the DB check/pg_restore. Do not treat it as a completed restore workflow until an approved fictional isolated PostgreSQL test exercises the full path.
+
+`restore-test.ps1` requires explicit approval, a localhost-only destination, dedicated `restore_test` user, a unique `leadconnect_restore_test_*` database that already exists and is empty, DPAPI-protected credentials, and the matching recovery key. It checks `current_database()`, `current_user`, and user-table count before decryption/restore and never creates a database. It runs `pg_restore --exit-on-error --single-transaction`; production/staging endpoint names and non-loopback hosts are rejected. The complete restore path still requires Windows/PostgreSQL validation before approval.

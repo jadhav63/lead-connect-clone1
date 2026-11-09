@@ -25,3 +25,9 @@ Use `SECURITY.md`, `RECOVERY.md`, and `APPROVAL_CHECKLIST.md`. Email alerts to j
 ## Offline verification in this workspace
 
 Portable Node tests: `node --test backup/*.test.mjs`. Windows PowerShell, Task Scheduler, pg_dump/pg_restore, actual DPAPI behavior and Windows ACL behavior were unavailable here and remain unverified. `preflight.ps1` intentionally reports metadata/configuration only; it never connects to PostgreSQL or Google Drive. Retention defaults to preview; deletion is not implemented. Restore script validates target naming then stops before any database connection. These are not ready for activation.
+
+## Controlled Windows validation
+
+Run from an elevated-independent PowerShell 7 session under the intended backup service identity: `pwsh -NoProfile -File .\backup\windows-validation.ps1 -RunNodeTests`. This creates only synthetic files in the current user's TEMP folder and removes them. It does not connect to PostgreSQL or Drive and does not register a task. Confirm exact Node/PostgreSQL versions, Windows build, disk and ACL outputs before approving any install or live test. Windows was not available to execute this validation in the current workspace.
+
+Install prerequisites only after separate JD approval: supported Windows 10/11 or Windows Server still receiving security updates; 64-bit PowerShell 7.4+ / .NET 8+; Node.js 22 LTS or 24 LTS for the shared crypto helper; PostgreSQL 18 client utilities (`pg_dump`, `psql`, `pg_restore`); rclone only for future approved Drive operations. Verify vendor signatures and TLS roots. Do not install server/database components on the hotel PC.

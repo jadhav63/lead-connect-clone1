@@ -10,3 +10,6 @@
 - [ ] Complete approved cloud upload verification and isolated restore drill; record RPO/RTO.
 - [ ] Implement/test alerts, missed schedules, retry/no-overlap and retention safeguards.
 - [ ] JD separately approves installs, production connection, Drive authorization, first upload and Task Scheduler activation.
+- [ ] Run `windows-validation.ps1 -RunNodeTests` on the chosen Windows host and retain non-secret output.
+- [ ] Perform an isolated fictional PostgreSQL restore test using a pre-created empty loopback-only test database; record counts and duration.
+- [ ] Review Drive API provider and quotas without granting access until authorized; test against a mock provider first.
