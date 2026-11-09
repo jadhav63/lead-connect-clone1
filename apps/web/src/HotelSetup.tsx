@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api } from "./api";
 
 type Staff = { id: string; name: string; phone: string | null; email: string | null; department: string | null; jobRole: string | null; employmentStatus: string; appAccessEnabled: boolean };
@@ -32,7 +32,7 @@ export function HotelStaffDirectory() {
   const [preview, setPreview] = useState<any>(null);
   async function refresh() { setRows(await api<Staff[]>("/staff-directory")); }
   useEffect(() => { void refresh().catch(() => setMessage("Directory unavailable until the approved database migration is deployed.")); }, []);
-  async function save(e: React.FormEvent) {
+  async function save(e: FormEvent) {
     e.preventDefault(); setPending(true); setMessage("");
     try {
       const body = { ...form, email: form.email || null, phone: form.phone || null, department: form.department || null, jobRole: form.jobRole || null };
@@ -83,6 +83,7 @@ export function RoomInventoryPreview() {
     try {
       if(file.size>100000)throw Error("CSV must be under 100 KB");
       const rows=csvRecords(await file.text());
+      if (rows.some(r => r.property_code !== "58835")) throw Error("CSV property must be Tombstone Grand 58835");
       const rooms=rows.map(r=>({
         number:r.room_number,floor:Number(r.floor),roomType:r.room_type,
         ...(r.initial_cleaning_status?{initialStatus:r.initial_cleaning_status}:{}),

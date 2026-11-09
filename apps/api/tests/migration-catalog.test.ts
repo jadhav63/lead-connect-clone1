@@ -27,7 +27,7 @@ describe("migration connection and catalog verification", () => {
     expect(() => assertRenderTestSession(session, transport, endpoint)).toThrow("refusing migration");
   });
   it("derives the reviewed baseline and removes replaced foreign keys", () => {
-    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 14, enums: 11, indexes: 41, foreign_keys: 34 });
+    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 15, enums: 11, indexes: 43, foreign_keys: 35 });
     expect(expected.foreignKeys).not.toContain("cleaning_tasks_roomId_fkey");
     expect(expected.foreignKeys).toContain("cleaning_tasks_propertyId_roomId_fkey");
   });
@@ -43,7 +43,7 @@ describe("migration connection and catalog verification", () => {
   });
   it("verifies the actual disposable local database catalog", async () => {
     const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 14, enums: 11, indexes: 41, foreign_keys: 34 }); }
+    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 15, enums: 11, indexes: 43, foreign_keys: 35 }); }
     finally { await client.end(); }
   });
 });

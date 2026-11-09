@@ -5,12 +5,12 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { HttpError } from "../lib/errors.js";
 
 const router = Router();
-router.use(requireAuth, requireRole("ADMIN", "MANAGER"));
+const management = requireRole("ADMIN", "MANAGER");
 const code = "58835";
 const roomTypes = ["AC1", "AC2", "AC3", "RM1", "RM2", "RM3", "SU1"] as const;
 const counts: Record<string, number> = { AC1: 1, AC2: 2, AC3: 1, RM1: 5, RM2: 42, RM3: 8, SU1: 1 };
 const roomInput = z.object({
-  number: z.string().regex(/^\\d{3}$/),
+  number: z.string().regex(/^\d{3}$/),
   floor: z.number().int().min(1).max(2),
   roomType: z.enum(roomTypes),
   initialStatus: z.enum(["CLEAN", "DIRTY", "IN_PROGRESS", "INSPECTION", "MAINTENANCE", "OUT_OF_ORDER"]).optional(),
@@ -20,13 +20,13 @@ const inventoryInput = z.object({ propertyCode: z.literal("58835"), rooms: z.arr
 const nullableText = z.string().trim().max(200).nullable().optional();
 const staffInput = z.object({
   name: z.string().trim().min(2).max(200),
-  phone: z.string().trim().regex(/^\\d{10}$/).nullable().optional(),
+  phone: z.string().trim().regex(/^\d{10}$/).nullable().optional(),
   email: z.union([z.email(), z.literal(""), z.null()]).optional(),
   department: z.enum(["Management", "Front Desk", "Housekeeping", "Laundry", "Maintenance", "Breakfast"]).nullable().optional(),
   jobRole: nullableText,
   employmentStatus: z.enum(["PENDING_REVIEW", "ACTIVE", "INACTIVE"]).optional(),
 }).strict();
-function normalizedName(name: string) { return name.trim().replace(/\\s+/g, " ").toLocaleLowerCase("en-US"); }
+function normalizedName(name: string) { return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US"); }
 function requestProperty(req: Request) { return req.auth!.propertyId; }
 function requireImportGate() {
   if (process.env.TGH_IMPORT_ENABLED !== "true" || process.env.APP_ENV !== "production")
@@ -52,11 +52,11 @@ async function inventoryPreview(req: Request, body: z.infer<typeof inventoryInpu
   const conflicts = body.rooms.filter(r => map.has(r.number) && (map.get(r.number)!.roomType !== r.roomType || map.get(r.number)!.floor !== r.floor)).map(r => r.number);
   return { total: 60, toCreate: body.rooms.filter(r => !map.has(r.number)).length, alreadyPresent: body.rooms.filter(r => map.has(r.number)).length, conflicts, missingInitialStatus: body.rooms.filter(r => !r.initialStatus || !r.initialOccupancyStatus).map(r => r.number), databaseModified: false };
 }
-router.post("/room-inventory/preview", async (req, res) => {
+router.post("/room-inventory/preview", requireAuth, management, async (req, res) => {
   const body = inventoryInput.parse(req.body);
   res.json(await inventoryPreview(req, body));
 });
-router.post("/room-inventory/apply", async (req, res) => {
+router.post("/room-inventory/apply", requireAuth, management, async (req, res) => {
   requireImportGate();
   const body = inventoryInput.parse(req.body);
   if (!body.approvalReference || !/^JD-APPROVED-[A-Z0-9-]{6,}$/.test(body.approvalReference)) throw new HttpError(403, "JD approval reference required");
@@ -76,10 +76,10 @@ router.post("/room-inventory/apply", async (req, res) => {
   }, { isolationLevel: "Serializable" });
   res.json({ created: inserted, alreadyPresent: 60 - inserted });
 });
-router.get("/staff-directory", async (req, res) => {
+router.get("/staff-directory", requireAuth, management, async (req, res) => {
   res.json(await prisma.staffDirectoryEntry.findMany({ where: { propertyId: requestProperty(req) }, orderBy: { name: "asc" } }));
 });
-router.post("/staff-directory", async (req, res) => {
+router.post("/staff-directory", requireAuth, management, async (req, res) => {
   const data = staffInput.parse(req.body);
   const row = await prisma.staffDirectoryEntry.create({ data: {
     propertyId: requestProperty(req), name: data.name, normalizedName: normalizedName(data.name),
@@ -88,7 +88,7 @@ router.post("/staff-directory", async (req, res) => {
   }});
   res.status(201).json(row);
 });
-router.patch("/staff-directory/:entryId", async (req, res) => {
+router.patch("/staff-directory/:entryId", requireAuth, management, async (req, res) => {
   const entryId = z.uuid().parse(req.params.entryId);
   const data = staffInput.partial().parse(req.body);
   const before = await prisma.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) } });
@@ -112,11 +112,11 @@ async function staffPreview(req: Request, body: z.infer<typeof staffBatch>) {
   const found = new Set(existing.map(x => x.normalizedName));
   return { total: names.length, toCreate: names.filter(n => !found.has(n)).length, alreadyPresent: names.filter(n => found.has(n)).length, missingEmails: body.records.filter(r => !r.email).length, allAppAccessDisabled: true, databaseModified: false };
 }
-router.post("/staff-directory/import-preview", async (req, res) => {
+router.post("/staff-directory/import-preview", requireAuth, management, async (req, res) => {
   const body = staffBatch.parse(req.body);
   res.json(await staffPreview(req, body));
 });
-router.post("/staff-directory/import", async (req, res) => {
+router.post("/staff-directory/import", requireAuth, management, async (req, res) => {
   requireImportGate();
   const body = staffBatch.parse(req.body);
   if (!body.approvalReference || !/^JD-APPROVED-[A-Z0-9-]{6,}$/.test(body.approvalReference)) throw new HttpError(403, "JD approval reference required");
