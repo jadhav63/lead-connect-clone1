@@ -251,6 +251,7 @@ describe("property-scoped operational workflows", () => {
     expect((await api("otherCleaner").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
     expect((await api("manager").get("/housekeeping/overdue?before=2026-11-05")).body).toHaveLength(0);
     expect((await api("foreign").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
+    await prisma.cleaningTask.delete({ where: { id: created.body.id } });
   });
   it("moves assigned cleaning through start, completion and supervisor inspection", async () => {
     expect(
