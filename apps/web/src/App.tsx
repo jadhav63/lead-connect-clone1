@@ -568,8 +568,8 @@ export default function App() {
   const notifications = Array.isArray(data) ? data : [];
   const activityEntries = Array.isArray(data) ? data : [];
   const visibleActivity = activityEntries.filter((entry: any) => `${entry.actor?.name ?? "System"} ${entry.action ?? "UPDATE"} ${entry.entityType ?? "Record"}`.toLowerCase().includes(activitySearch.toLowerCase()));
-  const todayCleaningTasks: Task[] = Array.isArray(data) ? data : [];
-  const activeTaskByRoom = new Map(todayCleaningTasks.filter(task => ["PENDING", "IN_PROGRESS"].includes(task.status)).map(task => [task.room.id, task] as const));
+  const todayCleaningTasks: Task[] = page === "Housekeeping" && Array.isArray(data) ? data : [];
+  const activeTaskByRoom = new Map(todayCleaningTasks.filter(task => task.room?.id && ["PENDING", "IN_PROGRESS"].includes(task.status)).map(task => [task.room.id, task] as const));
   const dirtyCheckoutStayoverRooms = rooms.filter(room => room.status === "DIRTY" && ["DEPARTURE", "OCCUPIED"].includes(room.occupancyStatus));
   return (
     <div className="shell">
