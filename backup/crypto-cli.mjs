@@ -1,0 +1,3 @@
+import {readFile} from 'node:fs/promises';import {encryptFile,decryptFile} from './crypto.mjs';
+const [op,input,output,keyFile]=process.argv.slice(2);if(!['encrypt','decrypt'].includes(op)||!input||!output||!keyFile){console.error('Usage: node crypto-cli.mjs encrypt|decrypt INPUT OUTPUT KEYFILE');process.exit(2)}
+try{const key=await readFile(keyFile);if(key.length!==32)throw Error();await (op==='encrypt'?encryptFile(input,output,key):decryptFile(input,output,key));console.log('Authenticated crypto operation succeeded.')}catch{console.error('Authenticated crypto operation failed.');process.exitCode=1}

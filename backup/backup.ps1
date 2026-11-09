@@ -2,7 +2,7 @@
 param([switch]$Activate,[string]$ApprovalReference)
 Set-StrictMode -Version Latest; $ErrorActionPreference='Stop'
 $root='C:\HotelBackups\LeadConnect'; $cfgPath=Join-Path $PSScriptRoot 'config.json'
-$log=Join-Path $root 'logs'; $runId=[guid]::NewGuid().ToString('N'); $plain=$null; $pgpass=$null
+$log=Join-Path $root 'logs'; $runId=[guid]::NewGuid().ToString('N'); $plain=$null; $pgpass=$null; $keyPath=$null
 function Log($event,$status){$line=[ordered]@{time=(Get-Date).ToUniversalTime().ToString('o');runId=$runId;event=$event;status=$status}|ConvertTo-Json -Compress;Add-Content -LiteralPath (Join-Path $log 'backup.jsonl') -Value $line}
 try {
  if(-not $Activate -or $ApprovalReference -notmatch '^JD-APPROVED-[A-Z0-9-]{6,}$'){throw 'Inactive by default. Supply -Activate and an approved reference only after the checklist is signed.'}
@@ -29,12 +29,14 @@ try {
  & $pgdump --list $plain *> $null;if($LASTEXITCODE -ne 0){throw 'pg_dump archive validation failed.'}
  $keySecure=ConvertTo-SecureString (Get-Content -Raw $aesKeyFile) -ErrorAction Stop
  $kb=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($keySecure);try{$keyText=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($kb);$key=[Convert]::FromBase64String($keyText)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($kb);$keyText=$null}
- if($key.Length -ne 32){throw 'AES key length invalid.'};$nonce=[byte[]]::new(12);[Security.Cryptography.RandomNumberGenerator]::Fill($nonce);$tag=[byte[]]::new(16);$input=[IO.File]::ReadAllBytes($plain);$cipher=[byte[]]::new($input.Length);$aes=[Security.Cryptography.AesGcm]::new($key,16)
- try{$aes.Encrypt($nonce,$input,$cipher,$tag,[Text.Encoding]::UTF8.GetBytes('LeadConnectBackup-v1'))}finally{$aes.Dispose();[Array]::Clear($input,0,$input.Length);[Array]::Clear($key,0,$key.Length)}
- $stream=[IO.File]::Open($archive,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$stream.Write([Text.Encoding]::ASCII.GetBytes('LCBAK1'));$stream.Write($nonce);$stream.Write($tag);$stream.Write($cipher);$stream.Flush($true)}finally{$stream.Dispose();[Array]::Clear($cipher,0,$cipher.Length)}
+ if($key.Length -ne 32){throw 'AES key length invalid.'};$keyPath=Join-Path $root "work\$runId.key";[IO.File]::WriteAllBytes($keyPath,$key);[Array]::Clear($key,0,$key.Length)
+ $keyAcl=New-Object Security.AccessControl.FileSecurity;$keyAcl.SetAccessRuleProtection($true,$false);$keyAcl.AddAccessRule($rule);Set-Acl -LiteralPath $keyPath -AclObject $keyAcl
+ $node=(Get-Command node.exe -ErrorAction SilentlyContinue).Source;if(-not $node){throw 'Node.js runtime required for the reviewed crypto module.'}
+ & $node (Join-Path $PSScriptRoot 'crypto-cli.mjs') encrypt $plain $archive $keyPath *> $null;if($LASTEXITCODE -ne 0 -or -not(Test-Path $archive)){throw 'Authenticated encryption failed.'}
+ Remove-Item -Force $keyPath;$keyPath=$null
  $hash=(Get-FileHash -Algorithm SHA256 $archive).Hash
  & $rclone copyto $archive ("$($cfg.paths.driveRemote)/"+[IO.Path]::GetFileName($archive)) --immutable --log-level ERROR 2>$null;if($LASTEXITCODE -ne 0){throw 'Google Drive upload failed.'}
  & $rclone check $archive $cfg.paths.driveRemote --download --one-way --log-level ERROR 2>$null;if($LASTEXITCODE -ne 0){throw 'Remote byte-for-byte verification failed.'}
  Log "backup_uploaded_sha256_$hash" 'ok'
 } catch { if(Test-Path $log){Log 'backup_failed' 'error'};throw 'Backup failed. Check the private event log using the run ID; sensitive details were suppressed.' }
-finally {if($plain -and(Test-Path $plain)){Remove-Item -Force $plain};if($pgpass -and(Test-Path $pgpass)){Remove-Item -Force $pgpass};Remove-Item Env:PGPASSFILE,Env:PGSSLMODE,Env:PGCHANNELBINDING -ErrorAction SilentlyContinue}
+finally {if($plain -and(Test-Path $plain)){Remove-Item -Force $plain};if($pgpass -and(Test-Path $pgpass)){Remove-Item -Force $pgpass};if($keyPath -and(Test-Path $keyPath)){Remove-Item -Force $keyPath};Remove-Item Env:PGPASSFILE,Env:PGSSLMODE,Env:PGCHANNELBINDING -ErrorAction SilentlyContinue}

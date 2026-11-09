@@ -21,3 +21,7 @@ Use `SECURITY.md`, `RECOVERY.md`, and `APPROVAL_CHECKLIST.md`. Email alerts to j
 ## Offline crypto test
 
 `crypto.mjs` uses Node.js `node:crypto` (OpenSSL-backed AES-256-GCM): 32-byte key, random 12-byte nonce, 16-byte tag, fixed associated data, versioned envelope. `node --test backup/crypto.test.mjs` passes round-trip, unique nonce, tamper detection, wrong-key rejection and malformed-header checks using fictional byte strings only. The backup PowerShell runner is NOT yet integrated with this tested module; it is not ready for activation. No Windows test was run.
+
+## Offline verification in this workspace
+
+Portable Node tests: `node --test backup/*.test.mjs`. Windows PowerShell, Task Scheduler, pg_dump/pg_restore, actual DPAPI behavior and Windows ACL behavior were unavailable here and remain unverified. `preflight.ps1` intentionally reports metadata/configuration only; it never connects to PostgreSQL or Google Drive. Retention defaults to preview; deletion is not implemented. Restore script validates target naming then stops before any database connection. These are not ready for activation.

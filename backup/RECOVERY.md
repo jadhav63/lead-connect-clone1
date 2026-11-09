@@ -9,3 +9,5 @@
 7. Record recovered timestamp, restore duration, RPO/RTO and reviewer; remove plaintext under approved cleanup procedure.
 
 Cloud restore has not been performed. `restore-test.ps1` intentionally stops pending implementation/review and approval.
+
+Current implementation status: streaming authenticated decrypt exists in `crypto.mjs`; the PowerShell restore harness validates a strict isolated database naming convention but intentionally stops before the DB check/pg_restore. Do not treat it as a completed restore workflow until an approved fictional isolated PostgreSQL test exercises the full path.
