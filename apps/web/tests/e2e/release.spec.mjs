@@ -44,7 +44,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await go(page, 'Housekeeping');
   await page.getByLabel('Inspection rework for room 901').fill('Recheck bathroom fixtures');
   await page.getByRole('button', { name: 'Return for cleaning' }).click();
-  await expect(page.getByText(/· In progress$/)).toBeVisible();
+  await expect(page.getByText('In progress', { exact: true })).toBeVisible();
   await signOut(page);
   await signIn(page, f.cleanerEmail, f.cleanerPassword);
   await go(page, 'Housekeeping');
