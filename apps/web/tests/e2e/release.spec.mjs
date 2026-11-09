@@ -23,6 +23,7 @@ async function go(page, label) {
 }
 test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) await page.screenshot({path: '/tmp/lead-connect-browser-failure.png'}).catch(() => {}); });
 test('manager, housekeeper, maintenance and front desk complete the daily workflow in Chromium', async ({ page }) => {
+  page.on('pageerror', error => console.log('Browser page error:', error.message));
   await signIn(page);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
@@ -72,7 +73,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await page.getByRole('button', { name: 'Start work' }).click();
   const startResponse = await startRequest;
   expect(startResponse.ok()).toBeTruthy();
-  console.log('Maintenance UI after start:', await page.locator('body').innerText());
+  console.log('Maintenance UI after start:', page.url(), await page.locator('body').innerHTML());
   await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText(/In progress/)).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
