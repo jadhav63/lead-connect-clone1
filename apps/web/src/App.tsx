@@ -466,7 +466,12 @@ export default function App() {
     setError("");
     setSuccess("");
     try {
-      await api(path, method, body);
+      const result = await api<any>(path, method, body);
+      if (page === "Maintenance" && method === "PATCH" && path.startsWith("/maintenance/") && result?.id) {
+        setData((current: any) => Array.isArray(current)
+          ? current.map((ticket: any) => ticket.id === result.id ? { ...ticket, ...result } : ticket)
+          : current);
+      }
       setSuccess("Saved successfully");
       await load();
       return true;
