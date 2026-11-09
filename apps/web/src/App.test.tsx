@@ -40,7 +40,7 @@ describe("dashboard loading and navigation", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: /^Housekeeping$/ }));
     expect(await screen.findByText("Dirty checkout and stayover queue · " + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Phoenix" }).format(new Date()))).toBeTruthy();
-    expect(screen.getByText("Room 901")).toBeTruthy();
+    expect((await screen.findAllByText("Room 901")).length).toBeGreaterThan(0);
     expect(screen.getByText("Checkout")).toBeTruthy();
     expect((screen.getByText("Assign a room").closest("details") as HTMLDetailsElement).open).toBe(true);
     expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/housekeeping\/overdue\?before=\d{4}-\d{2}-\d{2}$/));
@@ -49,7 +49,7 @@ describe("dashboard loading and navigation", () => {
     mockAPI.mockImplementation((path: string) => Promise.resolve(path.startsWith('/housekeeping') ? [{ id: 'cleaning', room: { id: 'room', number: '901', notes: null }, assignedToId: null, assignedTo: null, cleaningType: 'CHECKOUT', status: 'PENDING' }] : defaults(path)));
     render(<App />);
     fireEvent.click(await screen.findByRole('button', { name: /^Housekeeping$/ }));
-    await screen.findByText('901');
+    await screen.findAllByText('901');
     fireEvent.click(screen.getByRole('button', { name: /^Maintenance$/ }));
     expect(await screen.findByRole('heading', { name: /^Maintenance$/, level: 1 })).toBeTruthy();
     await screen.findByText('No maintenance tickets available.');
