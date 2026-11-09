@@ -472,8 +472,8 @@ export default function App() {
           ? current.map((ticket: any) => ticket.id === result.id ? { ...ticket, ...result } : ticket)
           : current);
       }
-      setSuccess("Saved successfully");
       await load();
+      setSuccess("Saved successfully");
       return true;
     } catch (e) {
       setError((e as Error).message);
