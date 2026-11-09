@@ -184,8 +184,10 @@ test('employee can change a password and sign in again in the browser', async ({
 test('manager can create and edit a separate directory profile without email or app access', async ({ page }) => {
   await signIn(page);
   await go(page, 'Employees');
-  await page.getByLabel('Full name', { exact: true }).fill('Fictional QA Directory Member');
-  await page.getByLabel('Department', { exact: true }).selectOption('Housekeeping');
+  const directory = page.getByRole('region', { name: 'Staff directory' });
+  await expect(directory).toBeVisible();
+  await directory.getByLabel('Full name', { exact: true }).fill('Fictional QA Directory Member');
+  await directory.getByRole('combobox').nth(0).selectOption('Housekeeping');
   await page.getByRole('button', { name: 'Add to directory', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible();
   let row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
@@ -196,7 +198,7 @@ test('manager can create and edit a separate directory profile without email or 
   row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Edit', exact: true }).click();
-  await page.getByLabel('Job title', { exact: true }).fill('Synthetic Room Attendant');
+  await directory.getByLabel('Job title', { exact: true }).fill('Synthetic Room Attendant');
   await page.getByRole('button', { name: 'Save staff changes', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible();
   await page.reload();
