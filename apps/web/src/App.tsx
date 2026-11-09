@@ -931,7 +931,7 @@ export default function App() {
                 <thead><tr>{["Room", "Service and scheduled date", "Employee", "Status", "Action"].map(x => <th key={x}>{x}</th>)}</tr></thead>
                 <tbody>{overdueTasks.map(task => <AssignmentRow key={task.id + "-overdue-" + task.status} task={task} employees={employees} canAssign={desk} run={run} busy={busy} />)}</tbody>
               </table></div>}
-            </section>}
+            </section>
             <div className="section-heading">
               <h2>Housekeeping board · {day}</h2>
               <button className="secondary" onClick={() => window.print()}>
