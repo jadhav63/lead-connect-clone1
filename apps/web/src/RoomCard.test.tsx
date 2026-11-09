@@ -37,6 +37,8 @@ describe("room save workflow", () => {
       status: "CLEAN",
       occupancyStatus: "DEPARTURE",
       notes: "Keep this note",
+      roomType: "Two Queen",
+      floor: 1,
     });
   });
   it("never claims success on a failed save", async () => {
