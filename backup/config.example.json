@@ -1,0 +1,25 @@
+{
+  "activationRequired": true,
+  "property": "Tombstone Grand Hotel",
+  "propertyCode": "58835",
+  "database": {
+    "host": "REPLACE_WITH_INDEPENDENTLY_VERIFIED_PRODUCTION_DIRECT_HOST",
+    "port": 5432,
+    "name": "leadconnect_production",
+    "user": "leadconnect_backup",
+    "sslmode": "verify-full",
+    "channel_binding": "require",
+    "schema": "public",
+    "expectedApplication": "lead-connect-api"
+  },
+  "paths": {
+    "root": "C:\\HotelBackups\\LeadConnect",
+    "pgDump": "C:\\Program Files\\PostgreSQL\\18\\bin\\pg_dump.exe",
+    "rclone": "C:\\Program Files\\rclone\\rclone.exe",
+    "driveRemote": "leadconnect-drive:Production_Database",
+    "encryptedAesKeyFile": "C:\\HotelBackups\\LeadConnect\\secrets\\aes-key.dpapi",
+    "encryptedCredentialFile": "C:\\HotelBackups\\LeadConnect\\secrets\\pgpass.dpapi"
+  },
+  "retention": { "dailyDays": 14, "weeklyWeeks": 8, "monthlyMonths": 3 },
+  "alerts": { "email": "jd@salinvestment.com", "provider": "UNCONFIGURED" }
+}
