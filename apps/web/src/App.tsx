@@ -471,9 +471,11 @@ export default function App() {
         setData((current: any) => Array.isArray(current)
           ? current.map((ticket: any) => ticket.id === result.id ? { ...ticket, ...result } : ticket)
           : current);
+        setSuccess("Saved successfully");
+        return true;
       }
-      await load();
       setSuccess("Saved successfully");
+      await load();
       return true;
     } catch (e) {
       setError((e as Error).message);
