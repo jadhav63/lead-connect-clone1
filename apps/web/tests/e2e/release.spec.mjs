@@ -68,12 +68,11 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await signIn(page, f.technicianEmail, f.technicianPassword);
   console.log('Browser acceptance: opening maintenance');
   await go(page, 'Maintenance');
+  const startRequest = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.startsWith('/maintenance/'), { timeout: 10000 });
   await page.getByRole('button', { name: 'Start work' }).click();
-  await Promise.race([
-    page.getByText('Saved successfully', { exact: true }).waitFor(),
-    page.getByRole('alert').waitFor(),
-  ]);
-  console.log('Maintenance start result:', await page.getByText('Saved successfully', { exact: true }).allTextContents(), await page.getByRole('alert').allTextContents());
+  const startResponse = await startRequest;
+  console.log('Maintenance start HTTP status:', startResponse.status());
+  expect(startResponse.ok()).toBeTruthy();
   await expect(page.getByText('Saved successfully', { exact: true })).toBeVisible();
   await expect(page.getByText(/In progress/)).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
