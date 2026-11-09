@@ -236,6 +236,22 @@ describe("property-scoped operational workflows", () => {
       ).status,
     ).toBe(403);
   });
+  it("shows earlier unfinished cleaning in a separate property-scoped overdue query", async () => {
+    const created = await api("front").post("/housekeeping", {
+      roomId: ownRoom,
+      scheduledFor: "2026-11-05",
+      cleaningType: "STAYOVER",
+      assignedToId: people.cleaner,
+    });
+    expect(created.status).toBe(201);
+    const managerRows = await api("manager").get("/housekeeping/overdue?before=2026-11-06");
+    expect(managerRows.status).toBe(200);
+    expect(managerRows.body.map((task: { id: string }) => task.id)).toContain(created.body.id);
+    expect((await api("cleaner").get("/housekeeping/overdue?before=2026-11-06")).body.map((task: { id: string }) => task.id)).toContain(created.body.id);
+    expect((await api("otherCleaner").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
+    expect((await api("manager").get("/housekeeping/overdue?before=2026-11-05")).body).toHaveLength(0);
+    expect((await api("foreign").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
+  });
   it("moves assigned cleaning through start, completion and supervisor inspection", async () => {
     expect(
       (

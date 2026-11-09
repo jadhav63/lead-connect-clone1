@@ -1,1 +1,1 @@
-number,floor,roomType,serviceStatus,reason
+propertyCode,roomNumber,floor,roomType,serviceStatus,reason,verifiedBy,verifiedAt,approvalReference

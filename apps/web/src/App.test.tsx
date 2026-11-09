@@ -29,6 +29,22 @@ it('lets an employee change their own password and signs them out without exposi
   expect(mockAPI).toHaveBeenCalledWith('/auth/password', 'POST', { currentPassword: password, newPassword: password + 'new' });
 });
 describe("dashboard loading and navigation", () => {
+  it("shows the dirty checkout queue, opens assignment by default, and loads overdue work separately", async () => {
+    mockAPI.mockImplementation((path: string) => {
+      if (path === "/auth/me") return Promise.resolve(identity);
+      if (path === "/rooms") return Promise.resolve([{ id: "room-901", number: "901", floor: 1, roomType: "RM2", status: "DIRTY", occupancyStatus: "DEPARTURE", notes: null, version: 1 }]);
+      if (path.startsWith("/housekeeping/overdue")) return Promise.resolve([]);
+      if (path.startsWith("/housekeeping?")) return Promise.resolve([]);
+      return Promise.resolve(defaults(path));
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Housekeeping$/ }));
+    expect(await screen.findByText("Dirty checkout and stayover queue · " + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Phoenix" }).format(new Date()))).toBeTruthy();
+    expect(screen.getByText("Room 901")).toBeTruthy();
+    expect(screen.getByText("Checkout")).toBeTruthy();
+    expect((screen.getByText("Assign a room").closest("details") as HTMLDetailsElement).open).toBe(true);
+    expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/housekeeping\/overdue\?before=\d{4}-\d{2}-\d{2}$/));
+  });
   it('clears array data before rendering a different operational page', async () => {
     mockAPI.mockImplementation((path: string) => Promise.resolve(path.startsWith('/housekeeping') ? [{ id: 'cleaning', room: { id: 'room', number: '901', notes: null }, assignedToId: null, assignedTo: null, cleaningType: 'CHECKOUT', status: 'PENDING' }] : defaults(path)));
     render(<App />);

@@ -3,9 +3,13 @@ import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 
 const types = new Set(['AC1', 'AC2', 'AC3', 'RM1', 'RM2', 'RM3', 'SU1']);
+const expectedTypeCounts = Object.freeze({ AC1: 1, AC2: 2, AC3: 1, RM1: 5, RM2: 42, RM3: 8, SU1: 1 });
 export function validateHotelInventory(value) {
   const fail = message => { throw new Error(message); };
-  if (!value || value.propertyCode !== '58835' || value.propertyName !== 'Tombstone Grand Hotel') fail('Confirm the hotel identity and store code 58835');
+  const allowedKeys = new Set(['propertyCode', 'propertyName', 'address', 'timezone', 'verifiedBy', 'verifiedAt', 'source', 'approvalReference', 'rooms']);
+  if (!value || Object.keys(value).some(key => !allowedKeys.has(key))) fail('Inventory must contain hotel metadata and room data only');
+  if (value.propertyCode !== '58835' || value.propertyName !== 'Tombstone Grand Hotel, a Baymont by Wyndham') fail('Confirm the hotel identity and store code 58835');
+  if (value.address !== '580 W Randolph Way, Tombstone, AZ 85638' || value.timezone !== 'America/Phoenix') fail('Confirm the production address and time zone');
   for (const key of ['verifiedBy', 'source', 'approvalReference']) if (typeof value[key] !== 'string' || !value[key].trim()) fail(`Missing inventory confirmation: ${key}`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value.verifiedAt ?? '') || !Number.isFinite(Date.parse(value.verifiedAt))) fail('Missing valid verification date');
   if (!Array.isArray(value.rooms) || value.rooms.length !== 60) fail('Exactly 60 independently verified rooms are required');
@@ -22,6 +26,7 @@ export function validateHotelInventory(value) {
     }
     seen.add(room.number); counts[room.roomType] = (counts[room.roomType] ?? 0) + 1;
   }
+  if (JSON.stringify(Object.fromEntries(Object.keys(expectedTypeCounts).map(type => [type, counts[type] ?? 0]))) !== JSON.stringify(expectedTypeCounts)) fail('Room type counts must match the approved 60-room inventory');
   return { rooms: 60, roomTypes: counts, outOfServiceRooms: unavailable, verifiedAt: value.verifiedAt,
     inventorySha256: createHash('sha256').update(JSON.stringify(value)).digest('hex'), databaseModified: false };
 }
