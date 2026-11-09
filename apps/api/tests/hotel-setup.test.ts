@@ -103,6 +103,7 @@ describe("property setup and employee directory", () => {
 
   it("restricts edits to managers, scopes entries to the manager property, and audits changed field names only", async () => {
     expect((await api("frontDesk").get("/staff-directory")).status).toBe(403);
+    expect((await api("frontDesk").patch(`/staff-directory/${staffEntryId}`, { phone: "5205550101" })).status).toBe(403);
     expect((await api("demoManager").patch(`/staff-directory/${staffEntryId}`, { email: "" })).status).toBe(404);
     const edited = await api("manager").patch(`/staff-directory/${staffEntryId}`, { email: "", jobRole: "Room Attendant", employmentStatus: "ACTIVE" });
     expect(edited.status).toBe(200);

@@ -198,6 +198,8 @@ test('manager can create and edit a separate directory profile without email or 
   row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  await directory.getByLabel('Phone (10 digits)', { exact: true }).fill('5205550102');
+  await directory.getByLabel('Email (optional)', { exact: true }).fill('fictional.qa@example.test');
   await directory.getByLabel('Job title', { exact: true }).fill('Synthetic Room Attendant');
   await page.getByRole('button', { name: 'Save staff changes', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible();
@@ -205,5 +207,30 @@ test('manager can create and edit a separate directory profile without email or 
   await go(page, 'Employees');
   row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
   await expect(row).toContainText('Synthetic Room Attendant');
+  await expect(row).toContainText('5205550102');
+  await expect(row).toContainText('fictional.qa@example.test');
   await expect(row).toContainText('Disabled');
+});
+
+test('manager can search, edit and reload a fictional room without changing its housekeeping state', async ({ page }) => {
+  await signIn(page);
+  await go(page, 'Rooms');
+  const search = page.getByLabel('Search rooms', { exact: true });
+  await search.fill('901');
+  const room = page.getByRole('article', { name: 'Room 901' });
+  await expect(room).toBeVisible();
+  await expect(room).toContainText('Dirty');
+  await search.fill('fictional king qa');
+  await expect(room).toHaveCount(0);
+  await search.fill('901');
+  await room.getByLabel('Room 901 type').fill('Fictional King QA');
+  await room.getByLabel('Room 901 notes').fill('Temporary synthetic edit');
+  await room.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await expect(room.getByRole('status')).toHaveText('Saved');
+  await page.reload();
+  await go(page, 'Rooms');
+  const persisted = page.getByRole('article', { name: 'Room 901' });
+  await expect(persisted.getByLabel('Room 901 type')).toHaveValue('Fictional King QA');
+  await expect(persisted.getByLabel('Room 901 notes')).toHaveValue('Temporary synthetic edit');
+  await expect(persisted).toContainText('Dirty');
 });
