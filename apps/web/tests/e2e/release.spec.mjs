@@ -72,6 +72,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await page.getByRole('button', { name: 'Start work' }).click();
   const startResponse = await startRequest;
   expect(startResponse.ok()).toBeTruthy();
+  console.log('Maintenance UI after start:', await page.locator('body').innerText());
   await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible({ timeout: 10000 });
   await expect(page.getByText(/In progress/)).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
