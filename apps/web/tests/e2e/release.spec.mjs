@@ -69,6 +69,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   console.log('Browser acceptance: opening maintenance');
   await go(page, 'Maintenance');
   await page.getByRole('button', { name: 'Start work' }).click();
+  await expect(page.getByText('In progress', { exact: true })).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
   await page.getByLabel(/^Completion notes/).fill('Repaired and verified in disposable test.');
   await page.getByRole('button', { name: 'Close ticket' }).click();
