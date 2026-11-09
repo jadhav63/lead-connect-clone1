@@ -831,7 +831,7 @@ export default function App() {
                   return <li key={room.id}><strong>Room {room.number}</strong><span>{service}</span><span>{task ? `${task.assignedTo?.name ?? "Unassigned"} · ${label(task.status)}` : "Not assigned"}</span></li>;
                 })}
               </ul>}
-            </section>
+            </section>}
             {desk && (
               <>
                 <FormPanel
