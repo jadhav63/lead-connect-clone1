@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, login, logout, forgetSession } from "./api";
 import { parseRoomCSV } from "./csv";
+import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
 import {
   type Employee,
   type Room,
@@ -78,12 +79,16 @@ export function RoomCard({
   const [status, setStatus] = useState(room.status),
     [occupancy, setOccupancy] = useState(room.occupancyStatus),
     [notes, setNotes] = useState(room.notes ?? ""),
+    [roomType, setRoomType] = useState(room.roomType ?? ""),
+    [floor, setFloor] = useState(room.floor),
     [saving, setSaving] = useState(false),
     [saved, setSaved] = useState(false);
   const changed =
     status !== room.status ||
     occupancy !== room.occupancyStatus ||
-    notes !== (room.notes ?? "");
+    notes !== (room.notes ?? "") ||
+    roomType !== (room.roomType ?? "") ||
+    floor !== room.floor;
   async function save() {
     setSaving(true);
     try {
@@ -93,6 +98,8 @@ export function RoomCard({
           status,
           occupancyStatus: occupancy,
           notes: notes || null,
+          roomType: roomType || null,
+          floor,
         })
       )
         setSaved(true);
@@ -139,6 +146,10 @@ export function RoomCard({
                 setSaved(false);
               }}
             />
+          </div>
+          <div className="two">
+            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
+            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
           </div>
           <label className="control">
             <span>Room notes</span>
@@ -764,6 +775,7 @@ export default function App() {
         )}
         {page === "Rooms" && (
           <>
+            {manager && <RoomInventoryPreview />}
             <div className="toolbar">
               <label className="control">
                 <span>Search rooms</span>
@@ -1250,6 +1262,7 @@ export default function App() {
         )}
         {page === "Employees" && (
           <>
+            {manager && <HotelStaffDirectory />}
             {manager && (
               <FormPanel
                 title="Create employee account"

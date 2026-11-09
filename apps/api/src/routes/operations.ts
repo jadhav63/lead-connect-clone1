@@ -285,6 +285,7 @@ router.patch("/rooms/:roomId", frontDesk, async (req, res) => {
       occupancyStatus: z.enum(occupancies).optional(),
       notes: z.string().max(2000).nullable().optional(),
       roomType: z.string().max(100).nullable().optional(),
+      floor: z.number().int().min(1).max(2).optional(),
     })
     .strict()
     .parse(req.body);

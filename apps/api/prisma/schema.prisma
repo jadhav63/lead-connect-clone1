@@ -103,6 +103,7 @@ model Property {
   frontDeskTasks FrontDeskTask[]
   handovers      ShiftHandover[]
   refreshTokens  RefreshToken[]
+  staffDirectory  StaffDirectoryEntry[]
 
   @@map("properties")
 }
@@ -390,4 +391,24 @@ model ShiftHandover {
 
   @@index([propertyId, businessDate, shift])
   @@map("shift_handovers")
+}
+
+model StaffDirectoryEntry {
+  id               String   @id @default(uuid())
+  propertyId       String
+  name             String
+  normalizedName   String
+  phone            String?
+  email            String?
+  department       String?
+  jobRole          String?
+  employmentStatus String   @default("PENDING_REVIEW")
+  appAccessEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  property         Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, normalizedName])
+  @@index([propertyId, employmentStatus])
+  @@map("staff_directory")
 }

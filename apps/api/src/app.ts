@@ -9,6 +9,7 @@ import { HttpError } from './lib/errors.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import operationsRouter from './routes/operations.js';
+import hotelSetupRouter from './routes/hotel-setup.js';
 import { databasePool, verifyDatabaseReadiness } from './lib/db.js';
 import { databaseFailureLog } from './lib/database-diagnostics.js';
 import { installWebApp } from './lib/web-app.js';
@@ -40,6 +41,7 @@ app.get('/api/ready', async (_req, res) => {
 app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api', hotelSetupRouter);
 app.use('/api', operationsRouter);
 installWebApp(app, env.WEB_DIST_PATH);
 app.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
