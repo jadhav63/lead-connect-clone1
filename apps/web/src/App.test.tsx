@@ -29,6 +29,15 @@ it('lets an employee change their own password and signs them out without exposi
   expect(mockAPI).toHaveBeenCalledWith('/auth/password', 'POST', { currentPassword: password, newPassword: password + 'new' });
 });
 describe("dashboard loading and navigation", () => {
+  it("keeps Tombstone import controls hidden on the separate LCD60 demo property", async () => {
+    mockAPI.mockImplementation((path: string) => Promise.resolve(
+      path === "/auth/me" ? identity : path === "/properties/current" ? { code: "LCD60", name: "Canyon Lantern Demo Lodge" } : defaults(path),
+    ));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Rooms$/ }));
+    expect(screen.queryByText("Preview Tombstone 60-room inventory (manager only)")).toBeNull();
+    expect(screen.getByText("No rooms match. Add your fictional test inventory to begin.")).toBeTruthy();
+  });
   it("shows the dirty checkout queue, opens assignment by default, and loads overdue work separately", async () => {
     mockAPI.mockImplementation((path: string) => {
       if (path === "/auth/me") return Promise.resolve(identity);

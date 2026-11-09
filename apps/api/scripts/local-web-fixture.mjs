@@ -36,6 +36,7 @@ try {
     await prisma.shiftHandover.deleteMany({ where: scope });
     await prisma.cleaningTask.deleteMany({ where: scope });
     await prisma.maintenanceTicket.deleteMany({ where: scope });
+    await prisma.staffDirectoryEntry.deleteMany({ where: scope });
     await prisma.auditLog.deleteMany({ where: scope });
     await prisma.notification.deleteMany({ where: scope });
     await prisma.refreshToken.deleteMany({ where: scope });

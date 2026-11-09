@@ -25,6 +25,14 @@ describe('production configuration', () => {
     expect(environmentSchema.safeParse({ ...config, APP_ENV: 'production', WEB_DIST_PATH: '../web/dist', EXPECTED_DATABASE_HOST: 'confirmed.example', EXPECTED_DATABASE_NAME: 'leadconnect_production', EXPECTED_DATABASE_USER: 'leadconnect_app' }).success).toBe(true);
     expect(environmentSchema.safeParse({ ...config, NODE_ENV: 'test', AUTH_COOKIE_SAME_SITE: 'none' }).success).toBe(false);
   });
+  it('keeps the Tombstone inventory import disabled unless production has an approved map fingerprint', () => {
+    const production = { ...config, APP_ENV: 'production', WEB_DIST_PATH: '../web/dist', EXPECTED_DATABASE_HOST: 'confirmed.example', EXPECTED_DATABASE_NAME: 'leadconnect_production', EXPECTED_DATABASE_USER: 'leadconnect_app' };
+    expect(environmentSchema.safeParse({ ...production, TGH_IMPORT_ENABLED: 'false' }).success).toBe(true);
+    expect(environmentSchema.safeParse({ ...production, TGH_IMPORT_ENABLED: 'true' }).success).toBe(false);
+    expect(environmentSchema.safeParse({ ...config, APP_ENV: 'staging', TGH_IMPORT_ENABLED: 'true', TGH_APPROVED_ROOM_INVENTORY_SHA256: 'a'.repeat(64) }).success).toBe(false);
+    expect(environmentSchema.safeParse({ ...production, TGH_IMPORT_ENABLED: 'true', TGH_APPROVED_ROOM_INVENTORY_SHA256: 'a'.repeat(64) }).success).toBe(true);
+    expect(environmentSchema.safeParse({ ...production, TGH_IMPORT_ENABLED: 'true', TGH_APPROVED_ROOM_INVENTORY_SHA256: 'not-a-digest' }).success).toBe(false);
+  });
 });
 
 describe('reverse proxy trust', () => {

@@ -15,7 +15,7 @@ export function expectedMigrationCatalog(sql) {
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
-export function assertRenderTestSession(session, transport, endpointHost) {
+export function assertRenderTestSession(session, transport, endpointHost, approvedEndpointHost) {
   const validClientTls = transport?.encrypted === true
     && transport?.authorized === true
     && transport?.authorizationError == null;
@@ -23,14 +23,14 @@ export function assertRenderTestSession(session, transport, endpointHost) {
     || (session?.tls === false && session.ssl_setting === "off");
   // Neon can terminate client TLS at its connection proxy. In that topology,
   // pg_stat_ssl describes the proxy-to-Postgres socket (false) rather than the
-  // Node-to-Neon TLS socket. Accept that observation only for the exact,
-  // independently allowlisted render-test endpoint and only when the actual
-  // Node TLS socket reports encryption plus successful certificate validation.
+  // Node-to-Neon TLS socket. Accept that observation only when the actual Node
+  // TLS socket is verified and the endpoint matches the independently supplied
+  // expected host.
   if (session?.database !== "leadconnect"
       || session?.schema !== "public"
       || !validClientTls
       || !validBackendObservation
-      || (session.tls === false && endpointHost !== "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech")) {
+      || (session.tls === false && (!approvedEndpointHost || endpointHost !== approvedEndpointHost))) {
     throw new Error("Unexpected database, schema, or verified TLS transport; refusing migration");
   }
 }

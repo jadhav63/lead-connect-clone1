@@ -11,10 +11,18 @@ export const environmentSchema = z.object({
   WEB_DIST_PATH: z.string().min(1).optional(),
   AUTH_COOKIE_SAME_SITE: z.enum(['strict', 'none']).default('strict'),
   APP_ENV: z.enum(['local', 'staging', 'production']).default('local'),
+  TGH_IMPORT_ENABLED: z.enum(['true', 'false']).default('false'),
+  TGH_APPROVED_ROOM_INVENTORY_SHA256: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   EXPECTED_DATABASE_HOST: z.string().optional(),
   EXPECTED_DATABASE_NAME: z.string().optional(),
   EXPECTED_DATABASE_USER: z.string().optional(),
 }).superRefine((value, context) => {
+  if (value.TGH_IMPORT_ENABLED === 'true' && value.APP_ENV !== 'production') {
+    context.addIssue({ code: 'custom', path: ['TGH_IMPORT_ENABLED'], message: 'Tombstone inventory imports can only be enabled in production' });
+  }
+  if (value.TGH_IMPORT_ENABLED === 'true' && !value.TGH_APPROVED_ROOM_INVENTORY_SHA256) {
+    context.addIssue({ code: 'custom', path: ['TGH_APPROVED_ROOM_INVENTORY_SHA256'], message: 'An approved room inventory SHA-256 is required before imports can be enabled' });
+  }
   if (value.APP_ENV === 'production' && (value.NODE_ENV !== 'production' || !value.WEB_DIST_PATH
       || !value.EXPECTED_DATABASE_HOST || !value.EXPECTED_DATABASE_NAME || !value.EXPECTED_DATABASE_USER
       || value.AUTH_COOKIE_SAME_SITE !== 'strict')) {

@@ -8,12 +8,12 @@ const sql = readdirSync(root).filter((n) => /^\d+_/.test(n)).sort().map((n) => r
 const expected = expectedMigrationCatalog(sql);
 describe("migration connection and catalog verification", () => {
   const verifiedTransport = { encrypted: true, authorized: true, authorizationError: null };
-  const directHost = "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech";
+  const directHost = "render-test.example.neon.tech";
   it("accepts client-verified TLS when the Postgres backend also reports TLS", () => {
     expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "on", tls: true }, verifiedTransport, directHost)).not.toThrow();
   });
   it("accepts Neon proxy TLS termination only with verified client TLS and the exact test endpoint", () => {
-    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, directHost)).not.toThrow();
+    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, directHost, directHost)).not.toThrow();
   });
   it.each([
     [{ database: "production", schema: "public", ssl_setting: "on", tls: true }, verifiedTransport, directHost],
@@ -24,10 +24,13 @@ describe("migration connection and catalog verification", () => {
     [{ database: "leadconnect", schema: "public", ssl_setting: "on", tls: false }, verifiedTransport, directHost],
     [{ database: "leadconnect", schema: "public", ssl_setting: "off", tls: null }, verifiedTransport, directHost],
   ])("refuses an unsafe live session before migration", (session, transport, endpoint) => {
-    expect(() => assertRenderTestSession(session, transport, endpoint)).toThrow("refusing migration");
+    expect(() => assertRenderTestSession(session, transport, endpoint, directHost)).toThrow("refusing migration");
+  });
+  it("refuses a TLS-terminated backend from an unapproved endpoint", () => {
+    expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, "other.example.neon.tech", directHost)).toThrow("refusing migration");
   });
   it("derives the reviewed baseline and removes replaced foreign keys", () => {
-    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 15, enums: 11, indexes: 43, foreign_keys: 35 });
+    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 15, enums: 11, indexes: 44, foreign_keys: 35 });
     expect(expected.foreignKeys).not.toContain("cleaning_tasks_roomId_fkey");
     expect(expected.foreignKeys).toContain("cleaning_tasks_propertyId_roomId_fkey");
   });
@@ -43,7 +46,7 @@ describe("migration connection and catalog verification", () => {
   });
   it("verifies the actual disposable local database catalog", async () => {
     const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 15, enums: 11, indexes: 43, foreign_keys: 35 }); }
+    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 15, enums: 11, indexes: 44, foreign_keys: 35 }); }
     finally { await client.end(); }
   });
 });

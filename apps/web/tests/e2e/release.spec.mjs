@@ -180,3 +180,28 @@ test('employee can change a password and sign in again in the browser', async ({
   await signIn(page, f.cleanerEmail, changed);
   await signOut(page);
 });
+
+test('manager can create and edit a separate directory profile without email or app access', async ({ page }) => {
+  await signIn(page);
+  await go(page, 'Employees');
+  await page.getByLabel('Full name', { exact: true }).fill('Fictional QA Directory Member');
+  await page.getByLabel('Department', { exact: true }).selectOption('Housekeeping');
+  await page.getByRole('button', { name: 'Add to directory', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible();
+  let row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
+  await expect(row).toContainText('Add later');
+  await expect(row).toContainText('Disabled');
+  await page.reload();
+  await go(page, 'Employees');
+  row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: 'Edit', exact: true }).click();
+  await page.getByLabel('Job title', { exact: true }).fill('Synthetic Room Attendant');
+  await page.getByRole('button', { name: 'Save staff changes', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved successfully' })).toBeVisible();
+  await page.reload();
+  await go(page, 'Employees');
+  row = page.getByRole('row').filter({ hasText: 'Fictional QA Directory Member' });
+  await expect(row).toContainText('Synthetic Room Attendant');
+  await expect(row).toContainText('Disabled');
+});

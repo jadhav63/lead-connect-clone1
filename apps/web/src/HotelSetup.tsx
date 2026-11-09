@@ -56,9 +56,9 @@ export function HotelStaffDirectory() {
     <h2>Staff directory (separate from login accounts)</h2>
     <p className="muted">Contact information can be updated later. Directory profiles do not grant app access; employees must be approved separately.</p>
     <label className="control">Search staff<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Employee name or department" /></label>
-    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Department</th><th>Phone</th><th>Email</th><th>Employment</th><th>App access</th><th>Action</th></tr></thead>
+    <div className="table-wrap"><table><thead><tr><th>Name</th><th>Department</th><th>Job title</th><th>Phone</th><th>Email</th><th>Employment</th><th>App access</th><th>Action</th></tr></thead>
       <tbody>{rows.filter(r => (r.name+" "+(r.department ?? "")).toLowerCase().includes(search.toLowerCase())).map(r =>
-      <tr key={r.id}><td>{r.name}</td><td>{r.department || "Unassigned"}</td><td>{r.phone || "—"}</td><td>{r.email || "Add later"}</td><td>{r.employmentStatus}</td><td>{r.appAccessEnabled ? "Enabled" : "Disabled"}</td><td><button type="button" className="secondary" onClick={()=>{setEditing(r.id);setForm({name:r.name,phone:r.phone,email:r.email,department:r.department,jobRole:r.jobRole,employmentStatus:r.employmentStatus});}}>Edit</button></td></tr>)}</tbody></table></div>
+      <tr key={r.id}><td>{r.name}</td><td>{r.department || "Unassigned"}</td><td>{r.jobRole || "—"}</td><td>{r.phone || "—"}</td><td>{r.email || "Add later"}</td><td>{r.employmentStatus}</td><td>{r.appAccessEnabled ? "Enabled" : "Disabled"}</td><td><button type="button" className="secondary" onClick={()=>{setEditing(r.id);setForm({name:r.name,phone:r.phone,email:r.email,department:r.department,jobRole:r.jobRole,employmentStatus:r.employmentStatus});}}>Edit</button></td></tr>)}</tbody></table></div>
     <form onSubmit={save} className="stack">
       <h3>{editing ? "Edit staff profile" : "Add staff profile"}</h3>
       <label className="control">Full name<input required maxLength={200} value={form.name} onChange={e=>setForm(x=>({...x,name:e.target.value}))} /></label>
@@ -77,9 +77,9 @@ export function HotelStaffDirectory() {
   </section>;
 }
 export function RoomInventoryPreview() {
-  const [result,setResult]=useState<any>(null); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false);
+  const [result,setResult]=useState<any>(null); const [draft,setDraft]=useState<any[]|null>(null); const [message,setMessage]=useState(""); const [busy,setBusy]=useState(false); const [approvalReference,setApprovalReference]=useState("");
   async function preview(file:File) {
-    setBusy(true); setResult(null);setMessage("");
+    setBusy(true); setResult(null); setDraft(null); setMessage("");
     try {
       if(file.size>100000)throw Error("CSV must be under 100 KB");
       const rows=csvRecords(await file.text());
@@ -89,13 +89,31 @@ export function RoomInventoryPreview() {
         ...(r.initial_cleaning_status?{initialStatus:r.initial_cleaning_status}:{}),
         ...(r.initial_occupancy_status?{initialOccupancyStatus:r.initial_occupancy_status}:{})
       }));
-      setResult(await api<any>("/room-inventory/preview","POST",{propertyCode:"58835",rooms}));
+      const response=await api<any>("/room-inventory/preview","POST",{propertyCode:"58835",rooms});
+      setDraft(rooms); setResult(response);
     }catch(e){setMessage((e as Error).message);}finally{setBusy(false);}
   }
+  async function applyInventory(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setMessage("");
+    try {
+      if (!draft) throw Error("Preview the reviewed room inventory again before import");
+      const applied = await api<any>("/room-inventory/apply","POST",{propertyCode:"58835",rooms:draft,approvalReference});
+      setMessage(`Imported ${applied.created} rooms. ${applied.alreadyPresent} matching rooms were left unchanged.`);
+      setResult(null); setDraft(null); setApprovalReference("");
+    } catch(e) { setMessage((e as Error).message); } finally { setBusy(false); }
+  }
   return <details className="panel"><summary>Preview Tombstone 60-room inventory (manager only)</summary>
-    <p className="muted">Checks exact room types, floors, duplicates and existing records. Preview never imports or changes occupancy.</p>
+    <p className="muted">Checks the reviewed room map, room types, floors, duplicates, approved fingerprint and existing records. Preview never imports or changes occupancy.</p>
     <input aria-label="Room inventory CSV" type="file" accept=".csv,text/csv" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(file)await preview(file);e.target.value="";}} />
-    {result && <p role="status">{result.total} validated rooms; {result.toCreate} new, {result.alreadyPresent} existing, {result.conflicts.length} conflicts, {result.missingInitialStatus.length} missing current status confirmations. No changes made.</p>}
+    {result && <>
+      <p role="status">{result.total} validated rooms; {result.toCreate} new, {result.alreadyPresent} existing, {result.conflicts.length} conflicts, {result.unexpectedExisting.length} unexpected existing rooms, {result.missingInitialStatus.length} missing current status confirmations. No changes made.</p>
+      <p className="muted">Room map fingerprint (SHA-256): <code>{result.inventoryFingerprint}</code></p>
+      {result.canApply && <form className="stack" onSubmit={applyInventory}>
+        <label className="control">JD approval reference<input required pattern="JD-APPROVED-[A-Z0-9-]{6,}" value={approvalReference} onChange={e=>setApprovalReference(e.target.value)} /></label>
+        <button disabled={busy || !approvalReference} type="submit">Apply approved inventory</button>
+      </form>}
+      {!result.canApply && <p className="muted">Import is unavailable until the production-only approval, inventory fingerprint, matching room map, and current room statuses are verified.</p>}
+    </>}
     {message && <p role="alert">{message}</p>}
   </details>;
 }

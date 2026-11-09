@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "../lib/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { HttpError } from "../lib/errors.js";
+import { env } from "../config/env.js";
+// @ts-expect-error Shared standalone fingerprint helper for launch-time CSV validation.
+import { roomMapFingerprint } from "../../scripts/room-map-fingerprint.mjs";
 
 const router = Router();
 const management = requireRole("ADMIN", "MANAGER");
@@ -29,8 +32,10 @@ const staffInput = z.object({
 function normalizedName(name: string) { return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US"); }
 function requestProperty(req: Request) { return req.auth!.propertyId; }
 function requireImportGate() {
-  if (process.env.TGH_IMPORT_ENABLED !== "true" || process.env.APP_ENV !== "production")
+  if (env.TGH_IMPORT_ENABLED !== "true" || env.APP_ENV !== "production")
     throw new HttpError(403, "Import is disabled until JD approves production activation");
+  if (!env.TGH_APPROVED_ROOM_INVENTORY_SHA256)
+    throw new HttpError(403, "Approved room inventory fingerprint is not configured");
 }
 async function confirmProperty(req: Request, supplied: string) {
   const p = await prisma.property.findUnique({ where: { id: requestProperty(req) }, select: { code: true } });
@@ -47,10 +52,16 @@ function checkRoomRows(rooms: z.infer<typeof roomInput>[]) {
 async function inventoryPreview(req: Request, body: z.infer<typeof inventoryInput>) {
   await confirmProperty(req, body.propertyCode);
   checkRoomRows(body.rooms);
+  const fingerprint = roomMapFingerprint(body.rooms);
   const existing = await prisma.room.findMany({ where: { propertyId: requestProperty(req) }, select: { number: true, roomType: true, floor: true } });
   const map = new Map(existing.map(r => [r.number, r]));
   const conflicts = body.rooms.filter(r => map.has(r.number) && (map.get(r.number)!.roomType !== r.roomType || map.get(r.number)!.floor !== r.floor)).map(r => r.number);
-  return { total: 60, toCreate: body.rooms.filter(r => !map.has(r.number)).length, alreadyPresent: body.rooms.filter(r => map.has(r.number)).length, conflicts, missingInitialStatus: body.rooms.filter(r => !r.initialStatus || !r.initialOccupancyStatus).map(r => r.number), databaseModified: false };
+  const incoming = new Set(body.rooms.map(r => r.number));
+  const unexpectedExisting = existing.filter(r => !incoming.has(r.number)).map(r => r.number);
+  const missingInitialStatus = body.rooms.filter(r => !r.initialStatus || !r.initialOccupancyStatus).map(r => r.number);
+  const approvedInventoryMatch = Boolean(env.TGH_APPROVED_ROOM_INVENTORY_SHA256 && fingerprint === env.TGH_APPROVED_ROOM_INVENTORY_SHA256);
+  const canApply = env.APP_ENV === "production" && env.TGH_IMPORT_ENABLED === "true" && approvedInventoryMatch && !conflicts.length && !unexpectedExisting.length && !missingInitialStatus.length;
+  return { total: 60, toCreate: body.rooms.filter(r => !map.has(r.number)).length, alreadyPresent: body.rooms.filter(r => map.has(r.number)).length, conflicts, unexpectedExisting, missingInitialStatus, inventoryFingerprint: fingerprint, approvedInventoryMatch, canApply, databaseModified: false };
 }
 router.post("/room-inventory/preview", requireAuth, management, async (req, res) => {
   const body = inventoryInput.parse(req.body);
@@ -61,10 +72,13 @@ router.post("/room-inventory/apply", requireAuth, management, async (req, res) =
   const body = inventoryInput.parse(req.body);
   if (!body.approvalReference || !/^JD-APPROVED-[A-Z0-9-]{6,}$/.test(body.approvalReference)) throw new HttpError(403, "JD approval reference required");
   const preview = await inventoryPreview(req, body);
-  if (preview.conflicts.length || preview.missingInitialStatus.length) throw new HttpError(409, "Resolve conflicts and explicitly confirm initial room statuses before import");
+  if (!preview.approvedInventoryMatch) throw new HttpError(409, "Room inventory does not match the independently approved fingerprint");
+  if (preview.conflicts.length || preview.unexpectedExisting.length || preview.missingInitialStatus.length) throw new HttpError(409, "Resolve inventory conflicts, extra existing rooms, and current status confirmations before import");
   const inserted = await prisma.$transaction(async tx => {
     const existing = await tx.room.findMany({ where: { propertyId: requestProperty(req) }, select: { number: true, roomType: true, floor: true } });
     const map = new Map(existing.map(r => [r.number, r]));
+    const incoming = new Set(body.rooms.map(r => r.number));
+    if (existing.some(r => !incoming.has(r.number))) throw new HttpError(409, "Existing inventory contains rooms outside the approved inventory");
     if (body.rooms.some(r => map.has(r.number) && (map.get(r.number)!.roomType !== r.roomType || map.get(r.number)!.floor !== r.floor))) throw new HttpError(409, "Room inventory conflict");
     const rows = body.rooms.filter(r => !map.has(r.number));
     if (rows.length) await tx.room.createMany({ data: rows.map(r => ({
@@ -81,26 +95,34 @@ router.get("/staff-directory", requireAuth, management, async (req, res) => {
 });
 router.post("/staff-directory", requireAuth, management, async (req, res) => {
   const data = staffInput.parse(req.body);
-  const row = await prisma.staffDirectoryEntry.create({ data: {
-    propertyId: requestProperty(req), name: data.name, normalizedName: normalizedName(data.name),
-    email: data.email || null, phone: data.phone || null, department: data.department || null,
-    jobRole: data.jobRole || null, employmentStatus: data.employmentStatus ?? "PENDING_REVIEW", appAccessEnabled: false
-  }});
+  const row = await prisma.$transaction(async tx => {
+    const created = await tx.staffDirectoryEntry.create({ data: {
+      propertyId: requestProperty(req), name: data.name, normalizedName: normalizedName(data.name),
+      email: data.email || null, phone: data.phone || null, department: data.department || null,
+      jobRole: data.jobRole || null, employmentStatus: data.employmentStatus ?? "PENDING_REVIEW", appAccessEnabled: false
+    }});
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "CREATE", entityType: "StaffDirectoryEntry", entityId: created.id, after: { changedFields: ["name", "phone", "email", "department", "jobRole", "employmentStatus"], appAccessEnabled: false } } });
+    return created;
+  });
   res.status(201).json(row);
 });
 router.patch("/staff-directory/:entryId", requireAuth, management, async (req, res) => {
   const entryId = z.uuid().parse(req.params.entryId);
   const data = staffInput.partial().parse(req.body);
-  const before = await prisma.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) } });
-  if (!before) throw new HttpError(404, "Staff directory entry not found");
-  const updated = await prisma.staffDirectoryEntry.update({ where: { id: entryId }, data: {
-    ...(data.name !== undefined ? { name: data.name, normalizedName: normalizedName(data.name) } : {}),
-    ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
-    ...(data.email !== undefined ? { email: data.email || null } : {}),
-    ...(data.department !== undefined ? { department: data.department || null } : {}),
-    ...(data.jobRole !== undefined ? { jobRole: data.jobRole || null } : {}),
-    ...(data.employmentStatus !== undefined ? { employmentStatus: data.employmentStatus } : {})
-  }});
+  const updated = await prisma.$transaction(async tx => {
+    const before = await tx.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) }, select: { id: true } });
+    if (!before) throw new HttpError(404, "Staff directory entry not found");
+    const saved = await tx.staffDirectoryEntry.update({ where: { id: entryId }, data: {
+      ...(data.name !== undefined ? { name: data.name, normalizedName: normalizedName(data.name) } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
+      ...(data.email !== undefined ? { email: data.email || null } : {}),
+      ...(data.department !== undefined ? { department: data.department || null } : {}),
+      ...(data.jobRole !== undefined ? { jobRole: data.jobRole || null } : {}),
+      ...(data.employmentStatus !== undefined ? { employmentStatus: data.employmentStatus } : {})
+    }});
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "UPDATE", entityType: "StaffDirectoryEntry", entityId: saved.id, after: { changedFields: Object.keys(data) } } });
+    return saved;
+  });
   res.json(updated);
 });
 const staffBatch = z.object({ propertyCode: z.literal("58835"), records: z.array(staffInput).min(1).max(100), approvalReference: z.string().optional() }).strict();

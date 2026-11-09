@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { assertRenderTestTarget, renderTestClientConfig } from '../scripts/render-test-target.mjs';
 function config() {
   const password = randomBytes(24).toString('hex');
-  const direct = new URL('postgresql://test-role@ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech/leadconnect?sslmode=verify-full');
+  const direct = new URL('postgresql://test-role@render-test.example.neon.tech/leadconnect?sslmode=verify-full');
   direct.password = password;
-  const pooled = new URL(direct); pooled.hostname = 'ep-old-truth-aror3gey-pooler.c-4.us-west-2.aws.neon.tech';
-  return { DATABASE_URL: pooled.href, DIRECT_URL: direct.href };
+  const pooled = new URL(direct); pooled.hostname = 'render-test-pooler.example.neon.tech';
+  return { DATABASE_URL: pooled.href, DIRECT_URL: direct.href, RENDER_TEST_DIRECT_HOST: direct.hostname, RENDER_TEST_POOLED_HOST: pooled.hostname };
 }
 describe('cloud test migration target guard', () => {
   it('accepts only the independently verified test endpoint pair', () => {
@@ -37,7 +37,7 @@ describe('cloud test migration target guard', () => {
   });
   it('constructs a verified TLS client config with no connection-string override surface', () => {
     const config = renderTestClientConfig(configForClient());
-    expect(config.host).toBe('ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech');
+    expect(config.host).toBe('render-test.example.neon.tech');
     expect(config.database).toBe('leadconnect');
     expect(config.ssl).toEqual({ rejectUnauthorized: true });
     expect(config.enableChannelBinding).toBe(true);
@@ -45,5 +45,5 @@ describe('cloud test migration target guard', () => {
 });
 
 function configForClient() {
-  return 'postgresql://test-role:fake-test-password@ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech/leadconnect?sslmode=verify-full';
+  return 'postgresql://test-role:fake-test-password@render-test.example.neon.tech/leadconnect?sslmode=verify-full';
 }
