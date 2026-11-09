@@ -68,7 +68,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await signIn(page, f.technicianEmail, f.technicianPassword);
   console.log('Browser acceptance: opening maintenance');
   await go(page, 'Maintenance');
-  const startRequest = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.startsWith('/maintenance/'), { timeout: 10000 });
+  const startRequest = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.includes('/maintenance/'), { timeout: 10000 });
   await page.getByRole('button', { name: 'Start work' }).click();
   const startResponse = await startRequest;
   console.log('Maintenance start HTTP status:', startResponse.status());
