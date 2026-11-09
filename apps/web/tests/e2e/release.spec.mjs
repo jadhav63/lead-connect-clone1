@@ -69,7 +69,12 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   console.log('Browser acceptance: opening maintenance');
   await go(page, 'Maintenance');
   await page.getByRole('button', { name: 'Start work' }).click();
-  console.log('Maintenance badges after start:', await page.locator('.badge').allTextContents());
+  await Promise.race([
+    page.getByText('Saved successfully', { exact: true }).waitFor(),
+    page.getByRole('alert').waitFor(),
+  ]);
+  console.log('Maintenance start result:', await page.getByText('Saved successfully', { exact: true }).allTextContents(), await page.getByRole('alert').allTextContents());
+  await expect(page.getByText('Saved successfully', { exact: true })).toBeVisible();
   await expect(page.getByText(/In progress/)).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
   await page.getByLabel(/^Completion notes/).fill('Repaired and verified in disposable test.');
