@@ -41,7 +41,7 @@ describe("dashboard loading and navigation", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^Housekeeping$/ }));
     expect(await screen.findByText("Dirty checkout and stayover queue · " + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Phoenix" }).format(new Date()))).toBeTruthy();
     expect((await screen.findAllByText("Room 901")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Checkout")).toBeTruthy();
+    expect((await screen.findAllByText("Checkout")).length).toBeGreaterThan(0);
     expect((screen.getByText("Assign a room").closest("details") as HTMLDetailsElement).open).toBe(true);
     expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/housekeeping\/overdue\?before=\d{4}-\d{2}-\d{2}$/));
   });
