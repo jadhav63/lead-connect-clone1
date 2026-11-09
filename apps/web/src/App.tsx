@@ -83,6 +83,14 @@ export function RoomCard({
     [floor, setFloor] = useState(room.floor),
     [saving, setSaving] = useState(false),
     [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setStatus(room.status);
+    setOccupancy(room.occupancyStatus);
+    setNotes(room.notes ?? "");
+    setRoomType(room.roomType ?? "");
+    setFloor(room.floor);
+    setSaved(false);
+  }, [room.version]);
   const changed =
     status !== room.status ||
     occupancy !== room.occupancyStatus ||
@@ -824,7 +832,7 @@ export default function App() {
             <div className="room-grid">
               {filtered.map((room) => (
                 <RoomCard
-                  key={room.id + "-" + room.version}
+                  key={room.id}
                   room={room}
                   editable={desk}
                   onSave={(b) => run("/rooms/" + room.id, "PATCH", b)}
