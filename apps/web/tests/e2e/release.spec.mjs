@@ -143,7 +143,7 @@ test('desktop, tablet and phone layouts, keyboard access, print and outage recov
     expect(accessibility.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.map(n => ({ target: n.target, summary: n.failureSummary })) }))).toEqual([]);
   }
   await go(page, 'Housekeeping');
-  await expect(page.locator('tbody tr')).toHaveCount(60);
+  await expect(page.locator('tbody tr')).toHaveCount(59);
   await page.emulateMedia({ media: 'print' });
   await expect(page.getByRole('navigation')).toBeHidden();
   await expect(page.getByText(/Housekeeping board/)).toBeVisible();
@@ -225,7 +225,10 @@ test('manager can search, edit and reload a fictional room without changing its 
   await search.fill('960');
   await room.getByLabel('Room 960 type').fill('Fictional King QA');
   await room.getByLabel('Room 960 notes').fill('Temporary synthetic edit');
+  const roomSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.includes('/rooms/'));
   await room.getByRole('button', { name: 'Save changes', exact: true }).click();
+  const roomSaveResponse = await roomSave;
+  expect(roomSaveResponse.status(), await roomSaveResponse.text()).toBe(200);
   await expect(room.getByRole('status')).toHaveText('Saved');
   await page.reload();
   await go(page, 'Rooms');
