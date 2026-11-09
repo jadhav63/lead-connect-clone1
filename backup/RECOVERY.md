@@ -1,15 +1,21 @@
 # Isolated restore procedure
 
-1. Stop writes per incident plan and note time/release/last good remote ID.
-2. Verify remote encrypted size and SHA256, then download to restricted isolated Windows host.
-3. Retrieve the matching AES recovery key through owner-controlled escrow; never send it with the archive.
-4. Decrypt/authenticate to a protected temporary folder; stop on tag failure.
-5. Restore only into a newly created isolated test database, never production; use pg_restore `--exit-on-error --no-owner --no-acl`.
-6. Compare schema/migrations, table and record counts, referential integrity and representative operational history. Run application compatibility/login/property authorization in isolation.
-7. Record recovered timestamp, restore duration, RPO/RTO and reviewer; remove plaintext under approved cleanup procedure.
+## Implemented safeguards
 
-Cloud restore has not been performed. `restore-test.ps1` intentionally stops pending implementation/review and approval.
+`restore-test.ps1` is intended only for a separately approved local fictional restore exercise. It requires `-Activate`, an approval reference, a unique `leadconnect_restore_test_*` database name, fixed role `restore_test`, port 5432, and a loopback host. Non-loopback hosts, including production and staging endpoints, are rejected. The database must already exist; the script will not create it. It queries the actual database name, role and ordinary user-table count before continuing, then authenticates/decrypts the archive before starting `pg_restore --exit-on-error --single-transaction`. It does not use `--clean` or `--create` and therefore does not intentionally drop or replace existing objects.
 
-Current implementation status: streaming authenticated decrypt exists in `crypto.mjs`; the PowerShell restore harness validates a strict isolated database naming convention but intentionally stops before the DB check/pg_restore. Do not treat it as a completed restore workflow until an approved fictional isolated PostgreSQL test exercises the full path.
+Separate DPAPI-protected inputs are required for the recovery key and local database password. Temporary plaintext, recovery key and `.pgpass` files are kept in a restricted current-user temp directory and removed on completion or failure. The encrypted input archive is never modified by the restore script or decrypt helper.
 
-`restore-test.ps1` requires explicit approval, a localhost-only destination, dedicated `restore_test` user, a unique `leadconnect_restore_test_*` database that already exists and is empty, DPAPI-protected credentials, and the matching recovery key. It checks `current_database()`, `current_user`, and user-table count before decryption/restore and never creates a database. It runs `pg_restore --exit-on-error --single-transaction`; production/staging endpoint names and non-loopback hosts are rejected. The complete restore path still requires Windows/PostgreSQL validation before approval.
+## Proposed recovery sequence
+
+1. Obtain JD's separate approval for a fictional restore drill and identify the Windows host and service identity.
+2. Confirm the selected archive is a fictional test archive or otherwise explicitly approved; verify its stored checksum before use.
+3. Under the intended Windows identity, decrypt the matching DPAPI-protected recovery key and database password only when the approved restore script runs.
+4. Independently confirm the local database name, role, host and emptiness. Never substitute production or staging credentials/endpoints.
+5. Run the authenticated restore. Stop on any identity, authentication, permission, or `pg_restore` failure.
+6. Validate schema and object counts, representative synthetic records, and application compatibility in isolation. Record duration and recovery point.
+7. Confirm temporary plaintext/key files were removed and retain only non-secret results.
+
+## Status
+
+Streaming AES-GCM authentication and failure cleanup are covered by offline Node tests. Restore PowerShell has only received static review. Windows DPAPI/ACL behavior, the PostgreSQL identity query, restore success/rollback, post-restore checks, RPO/RTO, and restoration from a stored archive remain untested. This document is not authorization to connect or restore.

@@ -1,15 +1,22 @@
-# Activation approvals
+# Backup readiness and separate approvals
 
-- [ ] JD approves code and paid operation budget.
-- [ ] Confirm independent production Neon project, DB, direct endpoint, schema and dedicated read-only backup role.
-- [ ] Approve Windows version/build, PowerShell/.NET and PostgreSQL tools; dedicated service identity, BitLocker and NTFS ACLs.
-- [ ] Provision DPAPI-protected credentials and offline AES recovery key; test key escrow/decryption.
-- [ ] Verify Drive 07_Backups ACLs/quota; approve restricted authorization and folder creation.
-- [x] Offline synthetic AES-GCM round-trip, corruption and wrong-key tests pass (`node --test backup/crypto.test.mjs`).
-- [ ] Integrate crypto module with backup runner and test on Windows.
-- [ ] Complete approved cloud upload verification and isolated restore drill; record RPO/RTO.
-- [ ] Implement/test alerts, missed schedules, retry/no-overlap and retention safeguards.
-- [ ] JD separately approves installs, production connection, Drive authorization, first upload and Task Scheduler activation.
-- [ ] Run `windows-validation.ps1 -RunNodeTests` on the chosen Windows host and retain non-secret output.
-- [ ] Perform an isolated fictional PostgreSQL restore test using a pre-created empty loopback-only test database; record counts and duration.
-- [ ] Review Drive API provider and quotas without granting access until authorized; test against a mock provider first.
+## Offline preparation
+
+- [x] Remove the empty duplicate `retention.test.mjs.tmp` after comparing it with the real test file.
+- [x] Ignore local dumps, encrypted archives, key/DPAPI credential files, local secret config, temporary test output, and generated reports.
+- [x] Add a Windows-only validator and safe launcher; no installs, service connections, uploads, restores, or task registration are performed by the launcher.
+- [x] Review restore destination gates, GCM-before-restore ordering, `pg_restore --exit-on-error`, separate secrets, and temporary-file cleanup; corrected the key/password separation and temp ACL review gap.
+- [ ] Run the safe launcher on the intended Windows host and review its Markdown and JSON reports.
+- [ ] Resolve every FAIL and BLOCKED result; retain non-secret output.
+
+## Later steps that need JD's explicit approval
+
+- [ ] Install or update PowerShell, Node.js, PostgreSQL client utilities, or any other software.
+- [ ] Create or provision real credentials, AES keys, DPAPI files, task identities, or key escrow.
+- [ ] Connect to any production, staging, local, Neon, Render, or other PostgreSQL service; perform a restore or database change.
+- [ ] Authorize Google Drive, inspect cloud quota/permissions, create cloud folders, upload, download, or delete cloud files.
+- [ ] Configure or send real email/operational alerts.
+- [ ] Register or activate a Windows scheduled task or backup run.
+- [ ] Change Windows security settings, time zone, ACLs, infrastructure, or paid resources.
+
+Approval of offline preparation or a successful Windows validation does not approve these steps. Confirm the exact next action, target, account, and any cost before proceeding.
