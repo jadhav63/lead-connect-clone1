@@ -127,14 +127,14 @@ test('desktop, tablet and phone layouts, keyboard access, print and outage recov
     const rooms = await (await fetch('/api/rooms', { headers })).json();
     const date = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Phoenix' }).format(new Date());
     let created = 0;
-    for (const room of rooms.filter(room => room.number !== '901')) {
+    for (const room of rooms.filter(room => room.number !== '901' && room.number !== '960')) {
       const response = await fetch('/api/housekeeping', { method: 'POST', headers, body: JSON.stringify({roomId: room.id, assignedToId: cleanerId, cleaningType: 'CHECKOUT', scheduledFor: date}) });
       if (response.status !== 201) throw new Error('Print assignment fixture failed');
       created += 1;
     }
     return created;
   }, { cleanerId: f.cleanerId });
-  expect(prepared).toBe(59);
+  expect(prepared).toBe(58);
   for (const width of [1440, 768, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await go(page, 'Dashboard');
@@ -216,21 +216,21 @@ test('manager can search, edit and reload a fictional room without changing its 
   await signIn(page);
   await go(page, 'Rooms');
   const search = page.getByLabel('Search rooms', { exact: true });
-  await search.fill('902');
-  const room = page.getByRole('article', { name: 'Room 902' });
+  await search.fill('960');
+  const room = page.getByRole('article', { name: 'Room 960' });
   await expect(room).toBeVisible();
   await expect(room).toContainText('Clean');
   await search.fill('fictional king qa');
   await expect(room).toHaveCount(0);
-  await search.fill('902');
-  await room.getByLabel('Room 902 type').fill('Fictional King QA');
-  await room.getByLabel('Room 902 notes').fill('Temporary synthetic edit');
+  await search.fill('960');
+  await room.getByLabel('Room 960 type').fill('Fictional King QA');
+  await room.getByLabel('Room 960 notes').fill('Temporary synthetic edit');
   await room.getByRole('button', { name: 'Save changes', exact: true }).click();
   await expect(room.getByRole('status')).toHaveText('Saved');
   await page.reload();
   await go(page, 'Rooms');
-  const persisted = page.getByRole('article', { name: 'Room 902' });
-  await expect(persisted.getByLabel('Room 902 type')).toHaveValue('Fictional King QA');
-  await expect(persisted.getByLabel('Room 902 notes')).toHaveValue('Temporary synthetic edit');
+  const persisted = page.getByRole('article', { name: 'Room 960' });
+  await expect(persisted.getByLabel('Room 960 type')).toHaveValue('Fictional King QA');
+  await expect(persisted.getByLabel('Room 960 notes')).toHaveValue('Temporary synthetic edit');
   await expect(persisted).toContainText('Clean');
 });
