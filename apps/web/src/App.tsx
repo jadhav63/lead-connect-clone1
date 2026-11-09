@@ -89,7 +89,6 @@ export function RoomCard({
     setNotes(room.notes ?? "");
     setRoomType(room.roomType ?? "");
     setFloor(room.floor);
-    setSaved(false);
   }, [room.version]);
   const changed =
     status !== room.status ||
