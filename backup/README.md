@@ -17,3 +17,7 @@ After approval, create `07_Backups/Production_Database` under the existing priva
 Expected stored volume is approximately 25× measured compressed dump size after retention (overlaps may lower this). Example estimate: 0.25 GB per dump ≈6.25 GB; 1 GB ≈25 GB. No real dump size or Google Drive quota has been measured, so storage fit cannot be confirmed. Drive incremental monthly cost is unknown until account plan/free space is checked. rclone and Windows built-in crypto have no added license charge; existing hardware, Windows, Render/Neon and Drive plan costs are excluded.
 
 Use `SECURITY.md`, `RECOVERY.md`, and `APPROVAL_CHECKLIST.md`. Email alerts to jd@salinvestment.com require an approved sender/relay; none configured and no mail sent. Missed run, DB/export/encryption/upload/integrity failures, low disk, quota and expired authorization require monitoring. Alerts and safe retention are not yet implemented.
+
+## Offline crypto test
+
+`crypto.mjs` uses Node.js `node:crypto` (OpenSSL-backed AES-256-GCM): 32-byte key, random 12-byte nonce, 16-byte tag, fixed associated data, versioned envelope. `node --test backup/crypto.test.mjs` passes round-trip, unique nonce, tamper detection, wrong-key rejection and malformed-header checks using fictional byte strings only. The backup PowerShell runner is NOT yet integrated with this tested module; it is not ready for activation. No Windows test was run.
