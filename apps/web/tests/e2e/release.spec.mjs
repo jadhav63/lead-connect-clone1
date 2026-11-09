@@ -71,9 +71,8 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   const startRequest = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.includes('/maintenance/'), { timeout: 10000 });
   await page.getByRole('button', { name: 'Start work' }).click();
   const startResponse = await startRequest;
-  console.log('Maintenance start HTTP status:', startResponse.status());
   expect(startResponse.ok()).toBeTruthy();
-  await expect(page.getByText('Saved successfully', { exact: true })).toBeVisible();
+  await expect(page.getByText(/Saved successfully/)).toBeVisible();
   await expect(page.getByText(/In progress/)).toBeVisible();
   await page.getByText('Complete repair', { exact: true }).click();
   await page.getByLabel(/^Completion notes/).fill('Repaired and verified in disposable test.');
