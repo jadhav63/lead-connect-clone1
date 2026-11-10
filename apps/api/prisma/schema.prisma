@@ -107,6 +107,7 @@ model Property {
   publicAreas     PublicArea[]
   publicAreaTasks PublicAreaTask[]
   accessGrants EmployeeAccessGrant[]
+  housekeepingRules HousekeepingRules?
 
   @@map("properties")
 }
@@ -521,4 +522,15 @@ model PublicAreaTask {
   @@index([propertyId, scheduledFor, status])
   @@index([propertyId, assignedToId, scheduledFor])
   @@map("public_area_tasks")
+}
+
+model HousekeepingRules {
+  id String @id @default(uuid())
+  propertyId String @unique
+  rules Json
+  version Int @default(1)
+  updatedById String
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  @@map("housekeeping_rules")
 }
