@@ -281,8 +281,8 @@ test('manager can search, edit and reload a fictional room without changing its 
 });
 
 test('housekeeping mobile activation, private work, bilingual persistence, uncertain completion and immediate deactivation',async({page})=>{
-  await page.setViewportSize({width:390,height:844});await signIn(page);
-  const managerLogin=await page.request.post('/api/auth/login',{data:{email:f.email,password:f.password,propertyCode:f.code}});expect(managerLogin.ok()).toBeTruthy();
+  await page.setViewportSize({width:390,height:844});await signIn(page,f.mobileManagerEmail,f.mobileManagerPassword);
+  const managerLogin=await page.request.post('/api/auth/login',{data:{email:f.mobileManagerEmail,password:f.mobileManagerPassword,propertyCode:f.code}});expect(managerLogin.ok()).toBeTruthy();
   const managerToken=(await managerLogin.json()).accessToken;
   const headers={Authorization:'Bearer '+managerToken};
   const email=crypto.randomUUID()+'@example.test',password=crypto.randomUUID()+crypto.randomUUID();

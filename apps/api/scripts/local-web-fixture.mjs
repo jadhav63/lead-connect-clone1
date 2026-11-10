@@ -63,6 +63,8 @@ try {
         memberships: { create: { propertyId: property.id, role: "MANAGER" } },
       },
     });
+    const mobileManagerPassword = randomBytes(32).toString("hex");
+    const mobileManager = await prisma.user.create({data:{name:"Fictional Mobile Manager",email:randomUUID()+"@example.test",passwordHash:await argon2.hash(mobileManagerPassword),memberships:{create:{propertyId:property.id,role:"MANAGER"}}}});
     const cleanerPassword = randomBytes(32).toString("hex");
     const cleaner = await prisma.user.create({
       data: {
@@ -105,6 +107,7 @@ try {
       path,
       JSON.stringify({
         propertyId: property.id,
+        mobileManagerEmail: mobileManager.email, mobileManagerPassword,
         email: admin.email,
         password,
         code,
