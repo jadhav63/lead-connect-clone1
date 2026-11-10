@@ -628,9 +628,10 @@ function HotelApp() {
               className={page === n ? "nav active" : "nav"}
               aria-current={page === n ? "page" : undefined}
               onClick={() => {
+                setSuccess("");
+                if (page === n) { void load(); return; }
                 setData({});
                 setPage(n);
-                setSuccess("");
               }}
             >
               {t(n)}
