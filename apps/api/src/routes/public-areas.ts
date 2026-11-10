@@ -119,7 +119,8 @@ router.patch('/public-area-tasks/:taskId',async(req,res)=>{
     if(before.status==='COMPLETED' && (assigning || data.notes!==undefined || data.completedItems!==undefined))throw new HttpError(409,'Completed cleaning evidence is read-only; a supervisor may return it for cleaning');
     if(assigning){
       if(!isSupervisor)throw new HttpError(403,'Supervisor assignment required');
-      if(before.status!=='PENDING')throw new HttpError(409,'Reassign pending tasks only');
+      if(!['PENDING','IN_PROGRESS'].includes(before.status))throw new HttpError(409,'Reassign unfinished tasks only');
+      if(data.status!==undefined)throw new HttpError(400,'Reassign separately from changing task status');
       await assignee(tx,auth(req).propertyId,{...before,...data});
     }
     const checked=data.completedItems ?? before.completedItems;
@@ -128,7 +129,9 @@ router.patch('/public-area-tasks/:taskId',async(req,res)=>{
     if(data.status)assertAreaTransition(before.status,data.status,isSupervisor,isAssigned,before.checklist,checked);
     if(data.status==='VERIFIED' && before.completedById===auth(req).userId)throw new HttpError(403,'A different supervisor must verify this cleaning');
     const now=new Date();
+    const reassigned=assigning && (data.assignedToId!==undefined&&data.assignedToId!==before.assignedToId || data.assignedStaffId!==undefined&&data.assignedStaffId!==before.assignedStaffId);
     const updated=await tx.publicAreaTask.update({where:{id:taskId},data:{...data,
+      ...(reassigned?{status:'PENDING',startedAt:null,completedAt:null,completedById:null,verifiedAt:null,verifiedById:null,completedItems:[]}:{}),
       ...(data.status==='IN_PROGRESS'?{startedAt:before.startedAt??now,completedAt:null,completedById:null,verifiedAt:null,verifiedById:null,completedItems:[]} : {}),
       ...(data.status==='COMPLETED'?{completedAt:now,completedById:auth(req).userId}:{}),
       ...(data.status==='VERIFIED'?{verifiedAt:now,verifiedById:auth(req).userId}:{})}});

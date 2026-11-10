@@ -42,6 +42,7 @@ try {
     await prisma.auditLog.deleteMany({ where: scope });
     await prisma.notification.deleteMany({ where: scope });
     await prisma.refreshToken.deleteMany({ where: scope });
+    await prisma.employeeAccessGrant.deleteMany({where:scope});
     await prisma.room.deleteMany({ where: scope });
     await prisma.propertyMembership.deleteMany({ where: scope });
     await prisma.user.deleteMany({ where: { id: { in: users } } });

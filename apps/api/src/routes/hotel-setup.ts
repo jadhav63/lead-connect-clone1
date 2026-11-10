@@ -4,6 +4,7 @@ import { prisma } from "../lib/db.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { HttpError } from "../lib/errors.js";
 import { env } from "../config/env.js";
+import { revokeEmployeeSessions } from '../services/employee-access.js';
 // @ts-expect-error Shared standalone fingerprint helper for launch-time CSV validation.
 import { roomMapFingerprint } from "../../scripts/room-map-fingerprint.mjs";
 
@@ -123,8 +124,9 @@ router.patch("/staff-directory/:entryId", requireAuth, management, async (req, r
   const entryId = z.uuid().parse(req.params.entryId);
   const data = staffInput.partial().parse(req.body);
   const updated = await prisma.$transaction(async tx => {
-    const before = await tx.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) }, select: { id: true } });
+    const before = await tx.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) }, select: { id: true, userId:true } });
     if (!before) throw new HttpError(404, "Staff directory entry not found");
+    if(before.userId && data.employmentStatus!==undefined && data.employmentStatus!=='ACTIVE' && !req.auth!.roles.includes('ADMIN') && await tx.propertyMembership.findFirst({where:{propertyId:requestProperty(req),userId:before.userId,role:{in:['ADMIN','MANAGER']}}}))throw new HttpError(403,'Administrator required to deactivate manager access');
     const saved = await tx.staffDirectoryEntry.update({ where: { id: entryId }, data: {
       ...(data.name !== undefined ? { name: data.name, normalizedName: normalizedName(data.name) } : {}),
       ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
@@ -133,6 +135,12 @@ router.patch("/staff-directory/:entryId", requireAuth, management, async (req, r
       ...(data.jobRole !== undefined ? { jobRole: data.jobRole || null } : {}),
       ...(data.employmentStatus !== undefined ? { employmentStatus: data.employmentStatus } : {})
     }});
+    if(before.userId && data.employmentStatus!==undefined && data.employmentStatus!=='ACTIVE'){
+      await revokeEmployeeSessions(tx,before.userId);
+      await tx.propertyMembership.updateMany({where:{propertyId:requestProperty(req),userId:before.userId},data:{isActive:false}});
+      await tx.staffDirectoryEntry.update({where:{id:entryId},data:{appAccessEnabled:false}});
+      saved.appAccessEnabled=false;
+    }
     await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "UPDATE", entityType: "StaffDirectoryEntry", entityId: saved.id, after: { changedFields: Object.keys(data) } } });
     return saved;
   });

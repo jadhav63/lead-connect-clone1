@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import type { NotificationType, UserRole } from "../generated/prisma/enums.js";
 import { elapsedCleaningMinutes, estimatedCleaningMinutes } from "../services/cleaning-time.js";
+import { revokeEmployeeSessions } from '../services/employee-access.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -208,9 +209,11 @@ router.patch("/employees/:membershipId", management, async (req, res) => {
         where: { id: membershipId, propertyId: auth(req).propertyId },
       });
       if (!current) throw new HttpError(404, "Membership not found");
+      const linkedProfile=await tx.staffDirectoryEntry.findFirst({where:{propertyId:current.propertyId,userId:current.userId}});
+      if(data.isActive && linkedProfile && (!linkedProfile.appAccessEnabled || linkedProfile.employmentStatus!=='ACTIVE'))throw new HttpError(409,'Issue a fresh activation code for this approved staff profile');
       if (
         current.userId === auth(req).userId ||
-        (current.role === "ADMIN" && !auth(req).roles.includes("ADMIN"))
+        (["ADMIN","MANAGER"].includes(current.role) && !auth(req).roles.includes("ADMIN"))
       )
         throw new HttpError(403, "Cannot change this membership");
       await tx.propertyMembership.update({ where: { id: membershipId }, data });
@@ -223,6 +226,12 @@ router.patch("/employees/:membershipId", management, async (req, res) => {
           },
           data: { revokedAt: new Date() },
         });
+      if (!data.isActive) {
+        await revokeEmployeeSessions(tx,current.userId);
+        // Deactivation removes every role for this property, including linked profiles.
+        await tx.propertyMembership.updateMany({where:{propertyId:current.propertyId,userId:current.userId},data:{isActive:false}});
+        await tx.staffDirectoryEntry.updateMany({where:{propertyId:current.propertyId,userId:current.userId},data:{appAccessEnabled:false}});
+      }
       await audit(tx, req, "PropertyMembership", membershipId, "UPDATE");
       return { id: membershipId, ...data };
     }, serial),
@@ -512,6 +521,9 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         "HOUSEKEEPING",
       ]);
       const taskRoom = await room(tx, auth(req).propertyId, task.roomId);
+      const reassigned=data.assignedToId!==undefined && data.assignedToId!==task.assignedToId && task.status==='IN_PROGRESS';
+      if(reassigned && data.status!==undefined)throw new HttpError(400,'Reassign separately from changing task status');
+      if(reassigned && !['MAINTENANCE','OUT_OF_ORDER'].includes(taskRoom.status))await roomState(tx,req,task.roomId,'DIRTY');
       const rework = task.status === "COMPLETED" && data.status === "IN_PROGRESS";
       if (data.reworkReason !== undefined && !rework) throw new HttpError(400, "Rework reason requires a completed inspection");
       if (rework && !supervisor) throw new HttpError(403, "Supervisor required");
@@ -547,6 +559,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         where: { id: taskId },
         data: {
           ...changes,
+          ...(reassigned?{status:'PENDING',startedAt:null,completedAt:null,verifiedAt:null,verifiedById:null}:{}),
           ...(data.status === "IN_PROGRESS" ? { startedAt: task.startedAt ?? new Date() } : {}),
           ...(rework ? { completedAt: null, verifiedAt: null, verifiedById: null,
             instructions: [task.instructions, `Inspection rework: ${reworkReason}`].filter(Boolean).join('\n').slice(-2000) } : {}),

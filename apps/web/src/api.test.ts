@@ -87,3 +87,12 @@ it('coordinates refresh through a browser-wide lock when supported', async () =>
   await api('/rooms');
   expect(lock).toHaveBeenCalledWith('lead-connect-session', expect.any(Function));
 });
+it('never automatically resends a mutation after a lost response or a 401 session refresh',async()=>{
+  const fetcher=vi.fn().mockResolvedValueOnce(response(200,{accessToken:'first'})).mockRejectedValueOnce(new TypeError('lost response'));
+  vi.stubGlobal('fetch',fetcher);await login('fixture@example.test',fixturePassword,'FICTIONAL');
+  await expect(api('/housekeeping/task','PATCH',{status:'COMPLETED'})).rejects.toThrow('Cannot reach');
+  expect(fetcher.mock.calls.filter(([,init])=>init.method==='PATCH')).toHaveLength(1);
+  fetcher.mockResolvedValueOnce(response(401,{})).mockResolvedValueOnce(response(200,{accessToken:'second'}));
+  await expect(api('/housekeeping/task','PATCH',{status:'COMPLETED'})).rejects.toThrow('Refresh current work');
+  expect(fetcher.mock.calls.filter(([,init])=>init.method==='PATCH')).toHaveLength(2);
+});

@@ -15,11 +15,11 @@ export const requireAuth: RequestHandler = async (req, _res, next) => {
     const claims = verifyAccess(match[1]);
     const user = await prisma.user.findUnique({
       where: { id: claims.userId },
-      select: { isActive: true, deletedAt: true, memberships: {
+      select: { isActive: true, deletedAt: true, sessionVersion: true, memberships: {
         where: { propertyId: claims.propertyId, isActive: true }, select: { role: true }
       }}
     });
-    if (!user?.isActive || user.deletedAt || !user.memberships.length) throw new HttpError(401, 'Unauthorized');
+    if (!user?.isActive || user.deletedAt || !user.memberships.length || (user.sessionVersion ?? 0) !== claims.sessionVersion) throw new HttpError(401, 'Unauthorized');
     req.auth = { ...claims, roles: user.memberships.map(m => m.role) };
     next();
   } catch (error) { next(error); }

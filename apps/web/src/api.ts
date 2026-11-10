@@ -22,6 +22,10 @@ export function forgetSession() {
   token = "";
   generation += 1;
 }
+function sessionEnded() {
+  forgetSession();
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('lead-connect-session-ended'));
+}
 export async function login(
   email: string,
   password: string,
@@ -46,7 +50,7 @@ async function refresh() {
     });
     if (!res.ok) {
       if (res.status === 401) {
-        if (startedGeneration === generation) token = "";
+        if (startedGeneration === generation) sessionEnded();
         return false;
       }
       throw new Error("The server is temporarily unavailable. Try again when your connection recovers.");
@@ -76,11 +80,23 @@ export async function api<T = any>(
   if (!token && path !== "/auth/logout" && !(await refresh()))
     throw new Error("Sign in to continue");
   let res = await send();
-  if (res.status === 401 && path !== "/auth/logout" && (await refresh()))
-    res = await send();
+  if (res.status === 401 && path !== "/auth/logout") {
+    if (await refresh()) {
+      // Replay only reads. A mutation always requires a fresh explicit employee action.
+      if (!['GET','HEAD'].includes(method.toUpperCase())) throw new Error('Session renewed. Refresh current work before submitting again.');
+      res = await send();
+    }
+  }
+  if(res.status===401)sessionEnded();
   const body = await readResponse(res);
   if (!res.ok) throw new Error(body?.error ?? "Request failed");
   return body as T;
+}
+export async function redeemAccess(code:string,password:string) {
+  const res=await request(base+'/api/auth/redeem-access',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,password})});
+  const body=await readResponse(res);
+  if(!res.ok)throw new Error(body?.error??'Code could not be redeemed');
+  forgetSession();
 }
 export async function logout() {
   try {

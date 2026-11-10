@@ -2,8 +2,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { env } from '../config/env.js';
 import { HttpError } from './errors.js';
-export function accessToken(userId: string, propertyId: string) {
-  return jwt.sign({ propertyId }, env.JWT_ACCESS_SECRET, {
+export function accessToken(userId: string, propertyId: string, sessionVersion = 0) {
+  return jwt.sign({ propertyId, sessionVersion }, env.JWT_ACCESS_SECRET, {
     algorithm: 'HS256', issuer: 'lead-connect', audience: 'lead-connect-api',
     subject: userId, expiresIn: '15m'
   });
@@ -14,7 +14,8 @@ export function verifyAccess(token: string) {
       algorithms: ['HS256'], issuer: 'lead-connect', audience: 'lead-connect-api'
     }) as JwtPayload;
     if (typeof decoded.sub !== 'string' || typeof decoded.propertyId !== 'string') throw new Error('Invalid claims');
-    return { userId: decoded.sub, propertyId: decoded.propertyId };
+    if (decoded.sessionVersion !== undefined && (!Number.isInteger(decoded.sessionVersion) || decoded.sessionVersion < 0)) throw new Error('Invalid claims');
+    return { userId: decoded.sub, propertyId: decoded.propertyId, sessionVersion: decoded.sessionVersion ?? 0 };
   } catch { throw new HttpError(401, 'Unauthorized'); }
 }
 export const newRefreshToken = () => randomBytes(48).toString('base64url');
