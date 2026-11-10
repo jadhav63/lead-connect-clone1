@@ -935,7 +935,55 @@ router.post(
   },
 );
 
-router.get("/dashboard", async (req, res) => {
+
+/** Property-scoped live board: summary only, no guest information. */
+router.get("/housekeeping/live-progress", frontDesk, async (req,res)=>{
+  const propertyId=auth(req).propertyId;
+  const day=businessDate(req);
+  const [tasks,rooms]=await prisma.$transaction([
+    prisma.cleaningTask.findMany({
+      where:{propertyId,scheduledFor:day},
+      select:{
+        id:true,status:true,cleaningType:true,assignedToId:true,updatedAt:true,
+        startedAt:true,completedAt:true,room:{select:{number:true}},
+        assignedTo:{select:{id:true,name:true}}
+      },orderBy:[{room:{number:'asc'}},{createdAt:'asc'}],take:500
+    }),
+    prisma.room.groupBy({by:['status'],where:{propertyId,isActive:true},_count:true})
+  ]);
+  const statuses=['PENDING','IN_PROGRESS','COMPLETED','VERIFIED','CANCELLED'] as const;
+  const counts=Object.fromEntries(statuses.map(s=>[s,tasks.filter(t=>t.status===s).length]));
+  const eligible=tasks.filter(t=>t.status!=='CANCELLED');
+  const done=eligible.filter(t=>t.status==='COMPLETED'||t.status==='VERIFIED').length;
+  const employees=new Map<string,{id:string;name:string;assigned:number;pending:number;inProgress:number;awaitingInspection:number;verified:number;done:number}>();
+  let unassigned=0;
+  for(const task of tasks){
+    if(task.status==='CANCELLED')continue;
+    if(!task.assignedToId || !task.assignedTo){unassigned++;continue;}
+    const e=employees.get(task.assignedToId)??{id:task.assignedToId,name:task.assignedTo.name,
+      assigned:0,pending:0,inProgress:0,awaitingInspection:0,verified:0,done:0};
+    e.assigned++;
+    if(task.status==='PENDING')e.pending++;
+    if(task.status==='IN_PROGRESS')e.inProgress++;
+    if(task.status==='COMPLETED')e.awaitingInspection++;
+    if(task.status==='VERIFIED')e.verified++;
+    if(['COMPLETED','VERIFIED'].includes(task.status))e.done++;
+    employees.set(e.id,e);
+  }
+  res.set('Cache-Control','private, no-store');
+  res.json({
+    date:day.toISOString().slice(0,10),updatedAt:new Date().toISOString(),
+    total:eligible.length,done,pending:counts.PENDING,inProgress:counts.IN_PROGRESS,
+    awaitingInspection:counts.COMPLETED,verified:counts.VERIFIED,cancelled:counts.CANCELLED,
+    unassigned,percent:eligible.length?Math.round(done*100/eligible.length):0,
+    roomStatusCounts:Object.fromEntries(rooms.map(r=>[r.status,r._count])),
+    employees:[...employees.values()].sort((a,b)=>a.name.localeCompare(b.name)),
+    recent:tasks.filter(t=>t.status==='COMPLETED'||t.status==='VERIFIED')
+      .sort((a,b)=>b.updatedAt.getTime()-a.updatedAt.getTime()).slice(0,8)
+      .map(t=>({id:t.id,room:t.room.number,status:t.status,at:t.updatedAt.toISOString()}))
+  });
+});
+router.get("/dashboard", frontDesk, async (req, res) => {
   const propertyId = auth(req).propertyId;
   const day = businessDate(req);
   const [rooms, cleaning, tickets, frontDeskTasks, handovers, overdueCleaning, overdueFrontDesk, overdueMaintenance] =
