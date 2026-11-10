@@ -22,7 +22,7 @@ async function getRules(propertyId:string) {
   const latest=await prisma.housekeepingRuleVersion.findFirst({where:{propertyId},orderBy:{version:'desc'}});
   return {version:latest?.version??0,rules:latest?housekeepingRulesSchema.parse(latest.settings):defaultHousekeepingRules};
 }
-function reviewService(r:SynxisRoom,date:string,fullServiceEveryDays:number){
+function reviewService(r:SynxisRoom,date:string,fullServiceEveryDays:number):'CHECKOUT'|'STAYOVER'|'FULL_SERVICE'|'ARRIVAL_TOUCHUP'|null{
   if(r.outOfOrder||r.outOfInventory||r.hkStatus==='CLEAN')return null;
   if(/Checked\s*Out|Departures?/i.test(r.guestStatus))return 'CHECKOUT';
   if(/Arrivals?|Arriving/i.test(r.guestStatus))return 'ARRIVAL_TOUCHUP';
