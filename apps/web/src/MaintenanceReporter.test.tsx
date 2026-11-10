@@ -30,7 +30,7 @@ beforeEach(()=>{
 });
 afterEach(()=>cleanup());
 it('prefills the housekeeping room and creates a confirmed ticket',async()=>{
-  render(<LanguageProvider><MaintenanceReporter roomNumber="101"/></LanguageProvider>);
+  render(<LanguageProvider><MaintenanceReporter reportRequest={{number:"101",requestId:1}}/></LanguageProvider>);
   const location=await screen.findByLabelText('Location') as HTMLSelectElement;
   expect(location.value).toBe('room:'+roomId);
   fireEvent.change(screen.getByLabelText('Issue type'),{target:{value:'Plumbing / Water'}});
@@ -44,7 +44,7 @@ it('prefills the housekeeping room and creates a confirmed ticket',async()=>{
   expect(screen.getByText('Plumbing / Water · Room 101')).toBeTruthy();
 });
 it('offers bilingual reporting with public-area selection',async()=>{
-  render(<LanguageProvider><LanguageSelect/><MaintenanceReporter roomNumber={null}/></LanguageProvider>);
+  render(<LanguageProvider><LanguageSelect/><MaintenanceReporter reportRequest={null}/></LanguageProvider>);
   await screen.findByRole('button',{name:'Report maintenance issue'});
   fireEvent.change(screen.getByLabelText('Language'),{target:{value:'es'}});
   fireEvent.click(screen.getByRole('button',{name:'Reportar problema de mantenimiento'}));
