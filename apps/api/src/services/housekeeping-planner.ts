@@ -4,7 +4,7 @@ export type PlanTask={
   id:string;roomNumber:string;floor:number;cleaningType:string;notes:string|null;
   assignedToId:string|null;status:string;
 };
-export type PlanEmployee={id:string;name:string};
+export type PlanEmployee={id:string;name:string;department?:string|null};
 export function calculateMinutes(task:PlanTask,rules:HousekeepingRules){
   const times:Record<string,number>={CHECKOUT:rules.minutes.checkout,STAYOVER:rules.minutes.stayover,
     FULL_SERVICE:rules.minutes.fullService,DEEP_CLEAN:rules.minutes.deepClean,ARRIVAL_TOUCHUP:rules.minutes.arrivalTouchup};
@@ -26,7 +26,10 @@ export function buildAssignmentPlan(tasks:PlanTask[],staff:PlanEmployee[],rules:
   const planned:{taskId:string;room:string;floor:number;employeeId:string;employee:string;minutes:number;service:string}[]=[];
   for(const task of ordered){
     if(!available.length)break;
-    const person=available.slice().sort((a,b)=>{
+    const laundry=available.filter(e=>e.department==='Laundry');
+    const regular=available.filter(e=>e.department!=='Laundry');
+    const eligible=task.cleaningType==='STAYOVER'&&rules.lightStayoversToLaundry&&laundry.length?laundry:(regular.length?regular:available);
+    const person=eligible.slice().sort((a,b)=>{
       const la=load.get(a.id)!,lb=load.get(b.id)!;
       const aa=rules.balanceMinutes?la.minutes:la.rooms*20;
       const bb=rules.balanceMinutes?lb.minutes:lb.rooms*20;
@@ -37,7 +40,11 @@ export function buildAssignmentPlan(tasks:PlanTask[],staff:PlanEmployee[],rules:
     const minutes=calculateMinutes(task,rules);
     planned.push({taskId:task.id,room:task.roomNumber,floor:task.floor,employeeId:person.id,
       employee:person.name,minutes,service:task.cleaningType});
-    const l=load.get(person.id)!;l.minutes+=minutes;l.rooms++;l.floor=task.floor;
+    const l=load.get(person.id)!;
+    if(l.rooms===0)l.minutes+=rules.minutes.cartSetup;
+    if(l.rooms>0&&l.floor!==task.floor&&task.floor===2)l.minutes+=rules.minutes.secondFloorAllowance;
+    const before=l.minutes;l.minutes+=minutes;l.rooms++;l.floor=task.floor;
+    if(before<240&&l.minutes>=240)l.minutes+=rules.minutes.lunch;
   }
   return {assignments:planned,unassigned:ordered.length-planned.length,
     workload:available.map(e=>({id:e.id,name:e.name,...load.get(e.id)!}))};
