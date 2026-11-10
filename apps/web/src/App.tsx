@@ -6,6 +6,7 @@ import { PublicAreas, PublicAreaReport } from "./PublicAreas";
 import { PropertyOnboarding } from "./PropertyOnboarding";
 import { HousekeepingRulesManager } from "./HousekeepingRulesManager";
 import { SynxisHousekeepingPanel } from "./SynxisHousekeepingPanel";
+import { LiveHousekeepingProgress } from "./LiveHousekeepingProgress";
 import {MyWorkToday} from './MyWorkToday';
 import {EmployeeRecovery} from './EmployeeRecovery';
 import {EmployeeAccessPanel} from './EmployeeAccessPanel';
@@ -439,7 +440,9 @@ function HotelApp() {
   const desk = manager || (identity?.roles.includes("FRONT_DESK") ?? false);
   useEffect(() => {
     api<Identity>("/auth/me")
-      .then(value=>{setIdentity(value);if(value.roles.includes('HOUSEKEEPING')&&!value.roles.some(r=>['ADMIN','MANAGER'].includes(r)))setPage('My Work Today');})
+      .then(value=>{setIdentity(value);const roles=value.roles;
+        if(!roles.some(r=>['ADMIN','MANAGER','FRONT_DESK'].includes(r)))setPage(roles.includes('HOUSEKEEPING')?'My Work Today':'Maintenance');
+      })
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
@@ -528,7 +531,7 @@ function HotelApp() {
       );
       const value=await api<Identity>("/auth/me");setIdentity(value);
       rememberHotel(String(fields.get('propertyCode')));
-      setPage(value.roles.includes('HOUSEKEEPING')&&!value.roles.some(r=>['ADMIN','MANAGER'].includes(r))?'My Work Today':'Dashboard');
+      setPage(value.roles.some(r=>['ADMIN','MANAGER','FRONT_DESK'].includes(r))?'Dashboard':value.roles.includes('HOUSEKEEPING')?'My Work Today':'Maintenance');
     } catch (e) {
       setError(language==='es'?t('Sign-in failed. Check your hotel, email and password, or contact your manager.'):(e as Error).message);
     } finally {
@@ -585,18 +588,16 @@ function HotelApp() {
         <EmployeeRecovery/>
       </main>
     );
-  const nav = [
-    ...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
-    "Dashboard",
-    "Rooms",
-    "Housekeeping",
-    "Public Areas",
-    "Maintenance",
-    "Notifications",
-    ...(desk ? ["Front Desk", "Employees"] : []),
-    ...(manager ? ["Reports", "Activity", "Settings"] : []),
-    "Account",
-  ];
+  // Navigation is a convenience only; API endpoints independently enforce roles.
+  const staffOnly = !desk;
+  const nav = staffOnly
+    ? [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
+       ...(identity.roles.includes('MAINTENANCE')?['Maintenance']:[]),
+       'Notifications','Account']
+    : [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
+       'Dashboard','Rooms','Housekeeping','Public Areas','Maintenance','Notifications',
+       ...(desk?['Front Desk','Employees']:[]),...(manager?['Reports','Activity','Settings']:[]),
+       'Account'];
   const filtered = rooms.filter(
     (r) =>
       (r.number.includes(search) ||
@@ -752,6 +753,7 @@ function HotelApp() {
                 </article>
               ))}
             </div>
+            <LiveHousekeepingProgress date={day}/>
             <div className="two">
               <section className="panel">
                 <h2>Room readiness</h2>
