@@ -4,6 +4,7 @@ import { parseRoomCSV } from "./csv";
 import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
 import { PublicAreas, PublicAreaReport } from "./PublicAreas";
 import { PropertyOnboarding } from "./PropertyOnboarding";
+import { HousekeepingRulesManager } from "./HousekeepingRulesManager";
 import {MyWorkToday} from './MyWorkToday';
 import {EmployeeRecovery} from './EmployeeRecovery';
 import {EmployeeAccessPanel} from './EmployeeAccessPanel';
@@ -801,7 +802,7 @@ function HotelApp() {
         )}
         {page === "Public Areas" && <PublicAreas key={identity.user.id} day={day} manager={manager} userId={identity.user.id} />}
         {page === 'My Work Today' && <MyWorkToday/>}
-        {page === "Settings" && manager && <PropertyOnboarding />}
+        {page === "Settings" && manager && <><PropertyOnboarding /><HousekeepingRulesManager /></>}
         {page === "Reports" && <><PublicAreaReport day={day} /><h2>Guest-room cleaning report</h2></>}
         {page === "Rooms" && (
           <>

@@ -107,6 +107,7 @@ model Property {
   publicAreas     PublicArea[]
   publicAreaTasks PublicAreaTask[]
   accessGrants EmployeeAccessGrant[]
+  housekeepingRules HousekeepingRuleVersion[]
 
   @@map("properties")
 }
@@ -147,6 +148,7 @@ model User {
   directoryProfiles StaffDirectoryEntry[]
   accessGrants EmployeeAccessGrant[] @relation("GrantEmployee")
   issuedAccessGrants EmployeeAccessGrant[] @relation("GrantIssuer")
+  housekeepingRuleEdits HousekeepingRuleVersion[]
 
   @@map("users")
 }
@@ -521,4 +523,19 @@ model PublicAreaTask {
   @@index([propertyId, scheduledFor, status])
   @@index([propertyId, assignedToId, scheduledFor])
   @@map("public_area_tasks")
+}
+
+model HousekeepingRuleVersion {
+  id String @id @default(uuid())
+  propertyId String
+  version Int
+  settings Json
+  createdById String
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, version])
+  @@index([propertyId, createdAt])
+  @@map("housekeeping_rule_versions")
 }
