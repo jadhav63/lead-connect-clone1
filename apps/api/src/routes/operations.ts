@@ -24,8 +24,9 @@ const roomStatuses = [
   "INSPECTION",
   "MAINTENANCE",
   "OUT_OF_ORDER",
+  "UNKNOWN",
 ] as const;
-const occupancies = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE"] as const;
+const occupancies = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE", "UNKNOWN"] as const;
 const cleaningTypes = [
   "CHECKOUT",
   "STAYOVER",

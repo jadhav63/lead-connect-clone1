@@ -22,6 +22,7 @@ enum RoomStatus {
   INSPECTION
   MAINTENANCE
   OUT_OF_ORDER
+  UNKNOWN
 }
 
 enum OccupancyStatus {
@@ -29,6 +30,7 @@ enum OccupancyStatus {
   OCCUPIED
   ARRIVAL
   DEPARTURE
+  UNKNOWN
 }
 
 enum TaskStatus {

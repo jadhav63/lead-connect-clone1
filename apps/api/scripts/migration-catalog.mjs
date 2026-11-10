@@ -6,13 +6,20 @@ export function expectedMigrationCatalog(sql) {
     if (m[1]) foreignKeys.add(m[1]);
     else foreignKeys.delete(m[2]);
   }
+  // Track enum extensions from subsequent, reviewed migrations.
+  const enums = [...sql.matchAll(/CREATE TYPE "([^"]+)" AS ENUM \(([^;]+)\);/g)]
+    .map(m => ({name:m[1],values:[...m[2].matchAll(/'([^']+)'/g)].map(v=>v[1])}))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  for (const m of sql.matchAll(/ALTER TYPE "([^"]+)" ADD VALUE(?: IF NOT EXISTS)? '([^']+)'/g)){
+    const found=enums.find(e=>e.name===m[1]);
+    if(!found)throw Error('Enum extension lacks base type');
+    if(!found.values.includes(m[2]))found.values.push(m[2]);
+  }
   return {
     tables: names(/CREATE TABLE "([^"]+)"/g).sort(),
     indexes: [...names(/CREATE (?:UNIQUE )?INDEX "([^"]+)"/g), ...names(/CONSTRAINT "([^"]+)" PRIMARY KEY/g)].sort(),
     foreignKeys: [...foreignKeys].sort(),
-    enums: [...sql.matchAll(/CREATE TYPE "([^"]+)" AS ENUM \(([^;]+)\);/g)]
-      .map((m) => ({ name: m[1], values: [...m[2].matchAll(/'([^']+)'/g)].map((v) => v[1]) }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    enums,
   };
 }
 export function assertRenderTestSession(session, transport, endpointHost, approvedEndpointHost) {
