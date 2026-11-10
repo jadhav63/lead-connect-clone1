@@ -949,7 +949,7 @@ router.get("/housekeeping/live-progress", frontDesk, async (req,res)=>{
         assignedTo:{select:{id:true,name:true}}
       },orderBy:[{room:{number:'asc'}},{createdAt:'asc'}],take:500
     }),
-    prisma.room.groupBy({by:['status'],where:{propertyId,isActive:true},_count:true})
+    prisma.room.groupBy({by:['status'],orderBy:{status:'asc'},where:{propertyId,isActive:true},_count:true})
   ]);
   const statuses=['PENDING','IN_PROGRESS','COMPLETED','VERIFIED','CANCELLED'] as const;
   const counts=Object.fromEntries(statuses.map(s=>[s,tasks.filter(t=>t.status===s).length]));
