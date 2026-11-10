@@ -591,7 +591,7 @@ function HotelApp() {
   // Navigation is a convenience only; API endpoints independently enforce roles.
   const staffOnly = !desk;
   const nav = staffOnly
-    ? [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
+    ? [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today','Housekeeping','Public Areas']:[]),
        ...(identity.roles.includes('MAINTENANCE')?['Maintenance']:[]),
        'Notifications','Account']
     : [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
