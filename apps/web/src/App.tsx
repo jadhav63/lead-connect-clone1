@@ -1069,6 +1069,7 @@ function HotelApp() {
                       </span>
                     </div>
                     <p>{t.description}</p>
+                    <p className="muted">Reported by {t.reportedBy?.name ?? "Staff"} · {new Date(t.createdAt).toLocaleString()}</p>
                     <p className="muted">
                       {t.room ? "Room " + t.room.number : t.publicArea ? "Public area · " + t.publicArea.name + " · " + t.publicArea.location : "General maintenance"} ·{" "}
                       {t.assignedTo?.name ?? "Unassigned"}
