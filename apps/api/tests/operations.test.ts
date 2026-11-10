@@ -541,6 +541,23 @@ describe("property-scoped operational workflows", () => {
       ).status,
     ).toBe(200);
   });
+  it("shows property-only live housekeeping progress and forbids staff dashboard access",async()=>{
+    const manager=await api("manager").get("/housekeeping/live-progress?date="+day);
+    expect(manager.status).toBe(200);
+    expect(manager.body).toMatchObject({date:day,unassigned:0});
+    expect(manager.body.total).toBeGreaterThanOrEqual(1);
+    expect(manager.body.done).toBeGreaterThanOrEqual(1);
+    expect(manager.body.employees).toContainEqual(expect.objectContaining({id:people.cleaner,name:"cleaner"}));
+    expect(manager.body.employees.every((e:{name:string})=>e.name!=="foreign")).toBe(true);
+    const front=await api("front").get("/housekeeping/live-progress?date="+day);
+    expect(front.status).toBe(200);
+    expect((await api("cleaner").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("foreign").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("repair").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("cleaner").get("/dashboard?date="+day)).status).toBe(403);
+    expect((await api("repair").get("/dashboard?date="+day)).status).toBe(403);
+    expect((await api("manager").get("/housekeeping/live-progress?date=bad")).status).toBe(400);
+  });
   it("restricts reports and keeps audit data property scoped", async () => {
     expect((await api("cleaner").get("/reports?date=" + day)).status).toBe(403);
     const report = await api("manager").get("/reports?date=" + day);
