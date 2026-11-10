@@ -10,6 +10,7 @@ describe('public-area recurrence and safety',()=>{
     expect(recurrenceSlots('ON_DEMAND',1,monday)).toEqual([]);
   });
   it('requires explicit area details, bounded unique checklists and only one assignee',()=>{
+    expect(areaInput.partial().parse({notes:'Keep inactive and weekday unchanged'})).toEqual({notes:'Keep inactive and weekday unchanged'});
     expect(areaInput.safeParse({name:'Lobby',location:'Ground',department:'Housekeeping',frequency:'DAILY',checklist:['Sweep','Sweep']}).success).toBe(false);
     expect(areaInput.safeParse({name:'Lobby',location:'Ground',department:'Housekeeping',frequency:'DAILY',checklist:[],propertyId:'foreign'}).success).toBe(false);
     expect(()=>assertSingleAssignee({assignedToId:'one',assignedStaffId:'two'})).toThrow('not both');

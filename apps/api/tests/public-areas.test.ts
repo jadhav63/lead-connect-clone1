@@ -91,6 +91,9 @@ describe('property-scoped public areas with disposable fictional fixtures',()=>{
     expect((await api('manager').get('/public-area-reports?date='+day)).body.missed).toBe(2);
     const future='2099-01-01';await api('manager').post('/public-area-tasks/prepare',{from:future,to:future});
     expect((await api('manager').patch('/public-areas/'+areaId,{isActive:false})).status).toBe(200);
+    await api('manager').patch('/public-areas/'+areaId,{weeklyDay:4});
+    const edited=await api('manager').patch('/public-areas/'+areaId,{notes:'Inactive area retained'});
+    expect(edited.body).toMatchObject({isActive:false,weeklyDay:4});
     expect((await api('manager').get('/public-area-tasks?date='+future)).body.every((t:any)=>t.status==='CANCELLED')).toBe(true);
     expect((await api('cleaner').get('/public-areas')).body).toEqual([]);
     expect((await api('manager').post('/public-areas/'+areaId+'/tasks',{date:day})).status).toBe(409);

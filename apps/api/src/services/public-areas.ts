@@ -6,8 +6,9 @@ export const areaInput = z.object({
   location: z.string().trim().min(1).max(120),
   department: z.enum(['Management', 'Front Desk', 'Housekeeping', 'Laundry', 'Maintenance', 'Breakfast']),
   frequency: z.enum(['ON_DEMAND','DAILY','TWICE_DAILY','WEEKLY']),
-  weeklyDay: z.number().int().min(0).max(6).default(1),
-  isActive: z.boolean().default(true),
+  // Creation defaults live in Prisma; PATCH must never default an omitted field.
+  weeklyDay: z.number().int().min(0).max(6).optional(),
+  isActive: z.boolean().optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
   checklist: z.array(z.string().trim().min(1).max(200)).max(40).refine(x=>new Set(x).size===x.length,'Checklist items must be unique'),
   assignedToId: z.uuid().nullable().optional(),
