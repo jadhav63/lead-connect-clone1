@@ -52,5 +52,7 @@ it('offers bilingual reporting with public-area selection',async()=>{
   fireEvent.change(screen.getByLabelText('¿Qué necesita reparación?'),{target:{value:'Puerta principal no cierra'}});
   fireEvent.click(screen.getByRole('button',{name:'Enviar reporte'}));
   await waitFor(()=>expect(mock.api.mock.calls.filter(([,method])=>method==='POST')).toHaveLength(1));
-  expect(mock.api.mock.calls.find(([,method])=>method==='POST')[2]).toMatchObject({publicAreaId:context.areas[0].id});
+  const submission=mock.api.mock.calls.find(([,method])=>method==='POST');
+  expect(submission).toBeDefined();
+  expect(submission![2]).toMatchObject({publicAreaId:context.areas[0].id});
 });
