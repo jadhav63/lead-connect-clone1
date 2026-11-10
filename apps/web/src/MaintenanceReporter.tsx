@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {api} from './api';
 import {useLanguage} from './mobile-language';
 
@@ -9,8 +9,9 @@ type Ticket={id:string;title:string;description:string;priority:string;status:st
   resolution:string|null;room:{number:string}|null;publicArea:{name:string;location:string}|null;assignedTo:{name:string}|null};
 const issueTypes=['AC / Heating','Plumbing / Water','Electrical / Lights','TV / Remote','Door / Lock',
   'Furniture / Fixtures','Pest / Odor','Safety Concern','Other'];
-export function MaintenanceReporter({roomNumber}:{roomNumber:string|null}){
+export function MaintenanceReporter({reportRequest}:{reportRequest:{number:string;requestId:number}|null}){
   const {t,language}=useLanguage();
+  const lastHandled=useRef(0);
   const [places,setPlaces]=useState<Places|null>(null);
   const [tickets,setTickets]=useState<Ticket[]>([]);
   const [location,setLocation]=useState(''),[category,setCategory]=useState(issueTypes[0]);
@@ -25,10 +26,10 @@ export function MaintenanceReporter({roomNumber}:{roomNumber:string|null}){
   useEffect(()=>{let alive=true;void refresh().catch(()=>{if(alive)setError('Could not load maintenance tickets. Try refreshing.');})
     .finally(()=>{if(alive)setLoading(false);});return()=>{alive=false;};},[]);
   useEffect(()=>{
-    if(!roomNumber||!places)return;
-    const room=places.rooms.find(r=>r.number===roomNumber);
-    if(room){setLocation('room:'+room.id);setOpen(true);}
-  },[roomNumber,places]);
+    if(!reportRequest||!places||lastHandled.current===reportRequest.requestId)return;
+    const room=places.rooms.find(r=>r.number===reportRequest.number);
+    if(room){lastHandled.current=reportRequest.requestId;setLocation('room:'+room.id);setOpen(true);}
+  },[reportRequest,places]);
   const locationId=location.slice(location.indexOf(':')+1);
   const sameRoom=places?.rooms.find(r=>r.id===locationId);
   const openForRoom=tickets.filter(ticket=>ticket.status!=='CLOSED'&&sameRoom&&ticket.room?.number===sameRoom.number);
