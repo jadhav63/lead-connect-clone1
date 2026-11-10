@@ -30,7 +30,7 @@ describe("migration connection and catalog verification", () => {
     expect(() => assertRenderTestSession({ database: "leadconnect", schema: "public", ssl_setting: "off", tls: false }, verifiedTransport, "other.example.neon.tech", directHost)).toThrow("refusing migration");
   });
   it("derives the reviewed baseline and removes replaced foreign keys", () => {
-    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 18, enums: 13, indexes: 57, foreign_keys: 50 });
+    expect(assertMigrationCatalog(expected, expected)).toEqual({ models: 19, enums: 13, indexes: 59, foreign_keys: 52 });
     expect(expected.foreignKeys).not.toContain("cleaning_tasks_roomId_fkey");
     expect(expected.foreignKeys).toContain("cleaning_tasks_propertyId_roomId_fkey");
   });
@@ -46,7 +46,7 @@ describe("migration connection and catalog verification", () => {
   });
   it("verifies the actual disposable local database catalog", async () => {
     const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 18, enums: 13, indexes: 57, foreign_keys: 50 }); }
+    try { await client.connect(); expect(assertMigrationCatalog(expected, await readMigrationCatalog(client))).toEqual({ models: 19, enums: 13, indexes: 59, foreign_keys: 52 }); }
     finally { await client.end(); }
   });
 });
