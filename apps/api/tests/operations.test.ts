@@ -362,6 +362,54 @@ describe("property-scoped operational workflows", () => {
       }),
     ).rejects.toMatchObject({ code: "P2003" });
   });
+  it("lets housekeeping report repair issues and track only their own tickets", async () => {
+    const context=await api("cleaner").get("/maintenance/report-context");
+    expect(context.status).toBe(200);
+    expect(context.body.rooms.some((r:{id:string})=>r.id===ownRoom)).toBe(true);
+    expect(context.body.rooms.some((r:{id:string})=>r.id===foreignRoom)).toBe(false);
+    const initial=await api("cleaner").get("/maintenance/my-reports");
+    expect(initial.status).toBe(200);
+    expect(initial.body).toEqual([]);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      roomId:foreignRoom,priority:"HIGH"})).status).toBe(404);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      roomId:ownRoom,publicAreaId:randomUUID(),priority:"HIGH"})).status).toBe(400);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      publicAreaId:randomUUID(),priority:"HIGH"})).status).toBe(404);
+    const created=await api("cleaner").post("/maintenance",{
+      title:"Plumbing / Water",description:"Water dripping from bathroom faucet",
+      roomId:ownRoom,priority:"HIGH"
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({reportedById:people.cleaner,roomId:ownRoom,priority:"HIGH",status:"OPEN",assignedToId:null});
+    const mine=await api("cleaner").get("/maintenance/my-reports");
+    expect(mine.status).toBe(200);
+    expect(mine.body).toEqual([expect.objectContaining({
+      id:created.body.id,title:"Plumbing / Water",status:"OPEN",room:{number:"101"}
+    })]);
+    expect((await api("otherCleaner").get("/maintenance/my-reports")).body).toEqual([]);
+    expect((await api("foreign").get("/maintenance/my-reports")).body).toEqual([]);
+    const manager=await api("manager").get("/maintenance");
+    expect(manager.body).toContainEqual(expect.objectContaining({
+      id:created.body.id,reportedBy:{id:people.cleaner,name:"cleaner"}
+    }));
+    expect((await api("cleaner").patch("/maintenance/"+created.body.id,{status:"CLOSED",
+      resolution:"Fixed"})).status).toBe(403);
+    expect(await prisma.notification.count({where:{entityId:created.body.id,type:"MAINTENANCE_CREATED",
+      userId:{in:[people.manager,people.front]}}})).toBeGreaterThan(0);
+    expect((await api("manager").patch("/maintenance/"+created.body.id,{
+      assignedToId:people.repair,status:"IN_PROGRESS",comment:"Repair underway"})).status).toBe(200);
+    const changed=await api("cleaner").get("/maintenance/my-reports");
+    expect(changed.body[0].status).toBe("IN_PROGRESS");
+    expect(changed.body[0].assignedTo.name).toBe("repair");
+    expect((await api("manager").patch("/maintenance/"+created.body.id,{
+      status:"CLOSED",resolution:"Faucet serviced"})).status).toBe(200);
+    const completed=await api("cleaner").get("/maintenance/my-reports");
+    expect(completed.body[0].status).toBe("CLOSED");
+    expect(completed.body[0].resolution).toBe("Faucet serviced");
+    expect(await prisma.notification.count({where:{userId:people.cleaner,entityId:created.body.id,
+      type:"MAINTENANCE_UPDATED"}})).toBeGreaterThan(0);
+  });
   it("creates and assigns a maintenance ticket", async () => {
     expect(
       (
