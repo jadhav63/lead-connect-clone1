@@ -67,6 +67,19 @@ router.post("/room-inventory/preview", requireAuth, management, async (req, res)
   const body = inventoryInput.parse(req.body);
   res.json(await inventoryPreview(req, body));
 });
+// Read-only readiness; property creation/bootstrap remains a separate owner-controlled step.
+router.get('/property-onboarding', requireAuth, management, async (req,res)=>{
+  const property=await prisma.property.findUniqueOrThrow({where:{id:requestProperty(req)}});
+  const rooms=await prisma.room.findMany({where:{propertyId:property.id},select:{roomType:true,floor:true}});
+  const actual=Object.fromEntries(roomTypes.map(type=>[type,rooms.filter(r=>r.roomType===type).length]));
+  res.json({propertyCode:property.code,realHotel:property.code===code,
+    identityVerified:property.code===code && property.name==='Tombstone Grand Hotel, a Baymont by Wyndham' && property.timezone==='America/Phoenix' && property.address==='580 W Randolph Way, Tombstone, AZ 85638',
+    timezone:property.timezone,guestRooms:rooms.length,expectedRoomTypes:counts,actualRoomTypes:actual,
+    roomTotalsMatch:rooms.length===60 && roomTypes.every(t=>actual[t]===counts[t]),
+    approvedMapConfigured:Boolean(env.TGH_APPROVED_ROOM_INVENTORY_SHA256),
+    importEnabled:property.code===code && env.APP_ENV==='production' && env.TGH_IMPORT_ENABLED==='true',
+    sourceStatusConfirmationRequired:true,createsProperty:false,createsLoginAccounts:false});
+});
 router.post("/room-inventory/apply", requireAuth, management, async (req, res) => {
   requireImportGate();
   const body = inventoryInput.parse(req.body);

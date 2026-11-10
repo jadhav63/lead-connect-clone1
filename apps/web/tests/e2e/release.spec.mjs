@@ -22,6 +22,48 @@ async function go(page, label) {
   await expect(page.getByText(`Loading ${label.toLowerCase()}…`)).toBeHidden();
 }
 test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) await page.screenshot({path: '/tmp/lead-connect-browser-failure.png'}).catch(() => {}); });
+
+test('public areas stay separate while a manager and cleaner complete, verify and report fictional work', async ({page})=>{
+  await signIn(page);
+  await go(page,'Public Areas');
+  await expect(page.getByText('No public areas configured.',{exact:true})).toBeVisible();
+  await page.getByLabel('Optional area example').selectOption('Lobby / Front Desk');
+  await page.getByLabel('Floor or location',{exact:true}).fill('Fictional ground floor');
+  await page.getByLabel('Checklist (one item per line)').fill('Sweep floor\nWipe desk');
+  await page.getByLabel('Default assigned employee').selectOption('user:'+f.cleanerId);
+  await page.getByRole('button',{name:'Create public area',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Edit Lobby / Front Desk'})).toBeVisible();
+  await page.getByRole('button',{name:'Prepare daily assignments'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'})).toBeVisible();
+  await page.getByRole('button',{name:'Prepare daily assignments'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'})).toHaveCount(1);
+  await signOut(page);await signIn(page,f.cleanerEmail,f.cleanerPassword);await go(page,'Public Areas');
+  await expect(page.getByRole('button',{name:'Create public area',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Start cleaning',exact:true}).click();
+  const card=page.getByRole('article',{name:'Lobby / Front Desk task 1'});
+  await card.getByLabel('Sweep floor',{exact:true}).check();await card.getByLabel('Wipe desk',{exact:true}).check();
+  await card.getByLabel('Cleaning notes',{exact:true}).fill('Fictional cleaning complete');
+  await card.getByRole('button',{name:'Complete cleaning',exact:true}).click();
+  await expect(card.getByText(/COMPLETED/)).toBeVisible();
+  await expect(page.getByRole('button',{name:'Verify area cleaning'})).toHaveCount(0);
+  await signOut(page);await signIn(page);await go(page,'Public Areas');
+  await page.getByRole('button',{name:'Verify area cleaning'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'}).getByText(/VERIFIED/)).toBeVisible();
+  await page.getByText('Report maintenance for Lobby / Front Desk',{exact:true}).click();
+  await page.getByLabel('Issue',{exact:true}).fill('Fictional public lamp');
+  await page.getByLabel('Details',{exact:true}).fill('Fictional public-area repair');
+  await page.getByRole('button',{name:'Create linked maintenance request'}).click();
+  await expect(page.getByRole('status').filter({hasText:'Saved successfully'})).toBeVisible();
+  await page.getByRole('button',{name:'Show public-area report'}).click();
+  await expect(page.getByRole('heading',{name:/Public-area cleaning ·/})).toBeVisible();
+  await expect(page.getByText(/Fictional public lamp/)).toBeVisible();
+  await page.getByRole('button',{name:'History for Lobby / Front Desk'}).click();
+  await expect(page.getByRole('heading',{name:'Cleaning history · Lobby / Front Desk'})).toBeVisible();
+  await go(page,'Dashboard');await expect(page.locator('.metric').filter({hasText:/^Rooms/})).toContainText('60');
+  await go(page,'Employees');await page.getByLabel('Full name',{exact:true}).fill('Fictional directory only');
+  await page.getByRole('button',{name:'Add to directory',exact:true}).click();
+  await expect(page.getByRole('row').filter({hasText:'Fictional directory only'})).toContainText('Disabled');
+});
 test('manager, housekeeper, maintenance and front desk complete the daily workflow in Chromium', async ({ page }) => {
   await signIn(page);
   await page.reload();

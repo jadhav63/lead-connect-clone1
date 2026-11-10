@@ -589,6 +589,7 @@ router.get("/maintenance", async (req, res) => {
       where,
       include: {
         room: true,
+        publicArea: { select: { id: true, name: true, location: true } },
         assignedTo: { select: userSelect },
         events: { orderBy: { createdAt: "asc" }, take: 100 },
       },

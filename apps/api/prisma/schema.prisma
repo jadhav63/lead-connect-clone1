@@ -104,6 +104,8 @@ model Property {
   handovers      ShiftHandover[]
   refreshTokens  RefreshToken[]
   staffDirectory  StaffDirectoryEntry[]
+  publicAreas     PublicArea[]
+  publicAreaTasks PublicAreaTask[]
 
   @@map("properties")
 }
@@ -135,6 +137,11 @@ model User {
   handoversWritten  ShiftHandover[]      @relation("HandoverAuthor")
   handoversVerified ShiftHandover[]      @relation("HandoverVerifier")
   refreshTokens     RefreshToken[]
+  publicAreaDefaults PublicArea[] @relation("AreaDefaultAssignee")
+  publicAreaAssigned PublicAreaTask[] @relation("AreaAssignee")
+  publicAreaCreated PublicAreaTask[] @relation("AreaCreator")
+  publicAreaVerified PublicAreaTask[] @relation("AreaVerifier")
+  publicAreaCompleted PublicAreaTask[] @relation("AreaCompleter")
 
   @@map("users")
 }
@@ -214,6 +221,7 @@ model MaintenanceTicket {
   id           String         @id @default(uuid())
   propertyId   String
   roomId       String?
+  publicAreaId String?
   title        String
   description  String
   priority     TicketPriority @default(MEDIUM)
@@ -232,6 +240,7 @@ model MaintenanceTicket {
   assignedTo   User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
   events       TicketEvent[]
   photos       Photo[]
+  publicArea   PublicArea? @relation(fields: [propertyId, publicAreaId], references: [propertyId, id], onDelete: Restrict)
 
   @@unique([propertyId, id])
   @@index([propertyId, status, priority])
@@ -407,8 +416,78 @@ model StaffDirectoryEntry {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   property         Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  publicAreaDefaults PublicArea[]
+  publicAreaTasks PublicAreaTask[]
 
   @@unique([propertyId, normalizedName])
+  @@unique([propertyId, id])
   @@index([propertyId, employmentStatus])
   @@map("staff_directory")
+}
+
+enum AreaFrequency {
+  ON_DEMAND
+  DAILY
+  TWICE_DAILY
+  WEEKLY
+}
+
+model PublicArea {
+  id String @id @default(uuid())
+  propertyId String
+  name String
+  location String
+  department String
+  frequency AreaFrequency @default(DAILY)
+  weeklyDay Int @default(1)
+  isActive Boolean @default(true)
+  sortOrder Int @default(0)
+  notes String?
+  checklist String[]
+  assignedToId String?
+  assignedStaffId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  assignedTo User? @relation("AreaDefaultAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedStaff StaffDirectoryEntry? @relation(fields: [propertyId, assignedStaffId], references: [propertyId, id], onDelete: Restrict)
+  tasks PublicAreaTask[]
+  tickets MaintenanceTicket[]
+  @@unique([propertyId, id])
+  @@unique([propertyId, name])
+  @@index([propertyId, isActive, sortOrder])
+  @@map("public_areas")
+}
+
+model PublicAreaTask {
+  id String @id @default(uuid())
+  propertyId String
+  areaId String
+  scheduledFor DateTime @db.Date
+  slot Int @default(1)
+  status TaskStatus @default(PENDING)
+  assignedToId String?
+  assignedStaffId String?
+  createdById String
+  verifiedById String?
+  completedById String?
+  checklist String[]
+  completedItems String[]
+  notes String?
+  startedAt DateTime?
+  completedAt DateTime?
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  area PublicArea @relation(fields: [propertyId, areaId], references: [propertyId, id], onDelete: Restrict)
+  assignedTo User? @relation("AreaAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedStaff StaffDirectoryEntry? @relation(fields: [propertyId, assignedStaffId], references: [propertyId, id], onDelete: Restrict)
+  createdBy User @relation("AreaCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  verifiedBy User? @relation("AreaVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+  completedBy User? @relation("AreaCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+  @@unique([propertyId, areaId, scheduledFor, slot])
+  @@index([propertyId, scheduledFor, status])
+  @@index([propertyId, assignedToId, scheduledFor])
+  @@map("public_area_tasks")
 }

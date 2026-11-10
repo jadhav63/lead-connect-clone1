@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { api, login, logout, forgetSession } from "./api";
 import { parseRoomCSV } from "./csv";
 import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
+import { PublicAreas, PublicAreaReport } from "./PublicAreas";
+import { PropertyOnboarding } from "./PropertyOnboarding";
 import {
   type Employee,
   type Room,
@@ -571,6 +573,7 @@ export default function App() {
     "Dashboard",
     "Rooms",
     "Housekeeping",
+    "Public Areas",
     "Maintenance",
     "Notifications",
     ...(desk ? ["Front Desk", "Employees"] : []),
@@ -780,6 +783,9 @@ export default function App() {
             </div>
           </>
         )}
+        {page === "Public Areas" && <PublicAreas key={identity.user.id} day={day} manager={manager} userId={identity.user.id} />}
+        {page === "Settings" && manager && <PropertyOnboarding />}
+        {page === "Reports" && <><PublicAreaReport day={day} /><h2>Guest-room cleaning report</h2></>}
         {page === "Rooms" && (
           <>
             {manager && property?.code === "58835" && <RoomInventoryPreview />}
@@ -1043,7 +1049,7 @@ export default function App() {
                     </div>
                     <p>{t.description}</p>
                     <p className="muted">
-                      {t.room ? "Room " + t.room.number : "Public area"} ·{" "}
+                      {t.room ? "Room " + t.room.number : t.publicArea ? "Public area · " + t.publicArea.name + " · " + t.publicArea.location : "General maintenance"} ·{" "}
                       {t.assignedTo?.name ?? "Unassigned"}
                     </p>
                     {desk && (
