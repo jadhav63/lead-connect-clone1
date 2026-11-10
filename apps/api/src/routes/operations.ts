@@ -268,6 +268,8 @@ router.post("/rooms", frontDesk, async (req, res) => {
     .parse(req.body);
   res.status(201).json(
     await prisma.$transaction(async (tx) => {
+      const property = await tx.property.findUniqueOrThrow({ where: { id: auth(req).propertyId }, select: { code: true } });
+      if (property.code === '58835') throw new HttpError(403, 'Use the independently approved 60-room inventory workflow for this hotel; manual room creation is disabled');
       const created = await tx.room.create({
         data: { ...data, propertyId: auth(req).propertyId },
       });
@@ -292,6 +294,10 @@ router.patch("/rooms/:roomId", frontDesk, async (req, res) => {
   res.json(
     await prisma.$transaction(async (tx) => {
       const current = await room(tx, auth(req).propertyId, roomId);
+      if ((data.roomType !== undefined && data.roomType !== current.roomType) || (data.floor !== undefined && data.floor !== current.floor)) {
+        const property = await tx.property.findUniqueOrThrow({ where: { id: auth(req).propertyId }, select: { code: true } });
+        if (property.code === '58835') throw new HttpError(403, 'Approved hotel room types, accessibility codes and floors require a separately reviewed inventory change');
+      }
       const updated = await tx.room.updateMany({
         where: { id: roomId, propertyId: auth(req).propertyId, version },
         data: { ...data, version: { increment: 1 } },

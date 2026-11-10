@@ -73,10 +73,12 @@ export function RoomCard({
   room,
   editable,
   onSave,
+  inventoryLocked = false,
 }: {
   room: Room;
   editable: boolean;
   onSave: (data: unknown) => Promise<boolean>;
+  inventoryLocked?: boolean;
 }) {
   const [status, setStatus] = useState(room.status),
     [occupancy, setOccupancy] = useState(room.occupancyStatus),
@@ -157,8 +159,8 @@ export function RoomCard({
             />
           </div>
           <div className="two">
-            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
-            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
+            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving || inventoryLocked} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
+            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving || inventoryLocked} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
           </div>
           <label className="control">
             <span>Room notes</span>
@@ -814,7 +816,7 @@ export default function App() {
                 Vacant
               </span>
             </div>
-            {desk && (
+            {desk && property?.code !== '58835' && (
               <FormPanel
                 title="Add room"
                 fields={[
@@ -840,6 +842,7 @@ export default function App() {
                   key={room.id}
                   room={room}
                   editable={desk}
+                  inventoryLocked={property?.code === '58835'}
                   onSave={(b) => run("/rooms/" + room.id, "PATCH", b)}
                 />
               ))}
