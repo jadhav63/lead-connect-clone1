@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { HttpError } from '../lib/errors.js';
 
 const router = Router();
-router.use(requireAuth, requireRole('ADMIN', 'MANAGER'));
+router.use('/settings/housekeeping-rules', requireAuth, requireRole('ADMIN', 'MANAGER'));
 
 // Each property has isolated settings; changes are versioned, reviewed and audited.
 export const housekeepingRulesSchema = z.object({
@@ -21,7 +21,7 @@ export const housekeepingRulesSchema = z.object({
     lunch: z.number().int().min(0).max(120),
   }).strict(),
   priority: z.array(z.enum(['CHECKOUT','STAYOVER','ARRIVAL'])).length(3).refine(x=>new Set(x).size===3),
-  startTime: z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   fullServiceEveryDays: z.number().int().min(1).max(14),
   balanceMinutes: z.boolean(),
   groupFloors: z.boolean(),
