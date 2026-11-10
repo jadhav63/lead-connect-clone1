@@ -595,6 +595,26 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
   );
 });
 
+
+router.get("/maintenance/report-context", requireRole("HOUSEKEEPING","MAINTENANCE","FRONT_DESK","ADMIN","MANAGER"),async(req,res)=>{
+  const [rooms,areas]=await Promise.all([
+    prisma.room.findMany({where:{propertyId:auth(req).propertyId,isActive:true},
+      select:{id:true,number:true,floor:true},orderBy:[{floor:'asc'},{number:'asc'}]}),
+    prisma.publicArea.findMany({where:{propertyId:auth(req).propertyId,isActive:true},
+      select:{id:true,name:true,location:true},orderBy:[{sortOrder:'asc'},{name:'asc'}]})
+  ]);
+  res.json({rooms,areas});
+});
+router.get("/maintenance/my-reports", requireRole("HOUSEKEEPING","MAINTENANCE","FRONT_DESK","ADMIN","MANAGER"),async(req,res)=>{
+  const tickets=await prisma.maintenanceTicket.findMany({
+    where:{propertyId:auth(req).propertyId,reportedById:auth(req).userId},
+    select:{id:true,title:true,description:true,priority:true,status:true,createdAt:true,updatedAt:true,
+      resolution:true,room:{select:{number:true}},publicArea:{select:{name:true,location:true}},
+      assignedTo:{select:{name:true}}},
+    orderBy:{createdAt:'desc'},take:100
+  });
+  res.json(tickets);
+});
 router.get("/maintenance", async (req, res) => {
   const where: Prisma.MaintenanceTicketWhereInput = {
     propertyId: auth(req).propertyId,
@@ -611,6 +631,7 @@ router.get("/maintenance", async (req, res) => {
         room: true,
         publicArea: { select: { id: true, name: true, location: true } },
         assignedTo: { select: userSelect },
+        reportedBy: { select: { id:true,name:true } },
         events: { orderBy: { createdAt: "asc" }, take: 100 },
       },
       orderBy: { createdAt: "desc" },
@@ -624,11 +645,13 @@ router.post("/maintenance", async (req, res) => {
       title: z.string().trim().min(1).max(200),
       description: text,
       roomId: id.nullable().optional(),
+      publicAreaId: id.nullable().optional(),
       assignedToId: id.nullable().optional(),
       priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
     })
     .strict()
     .parse(req.body);
+  if(data.roomId && data.publicAreaId)throw new HttpError(400,"Choose a room or public area, not both");
   if (
     data.assignedToId &&
     !manager(req) &&
@@ -638,6 +661,10 @@ router.post("/maintenance", async (req, res) => {
   res.status(201).json(
     await prisma.$transaction(async (tx) => {
       if (data.roomId) await room(tx, auth(req).propertyId, data.roomId);
+      if (data.publicAreaId) {
+        const area=await tx.publicArea.findFirst({where:{id:data.publicAreaId,propertyId:auth(req).propertyId,isActive:true}});
+        if(!area)throw new HttpError(404,"Public area not found");
+      }
       await member(tx, auth(req).propertyId, data.assignedToId, [
         "MAINTENANCE",
       ]);
