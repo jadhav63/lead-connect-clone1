@@ -36,10 +36,13 @@ try {
     await prisma.shiftHandover.deleteMany({ where: scope });
     await prisma.cleaningTask.deleteMany({ where: scope });
     await prisma.maintenanceTicket.deleteMany({ where: scope });
+    await prisma.publicAreaTask.deleteMany({ where: scope });
+    await prisma.publicArea.deleteMany({ where: scope });
     await prisma.staffDirectoryEntry.deleteMany({ where: scope });
     await prisma.auditLog.deleteMany({ where: scope });
     await prisma.notification.deleteMany({ where: scope });
     await prisma.refreshToken.deleteMany({ where: scope });
+    await prisma.employeeAccessGrant.deleteMany({where:scope});
     await prisma.room.deleteMany({ where: scope });
     await prisma.propertyMembership.deleteMany({ where: scope });
     await prisma.user.deleteMany({ where: { id: { in: users } } });
@@ -60,6 +63,8 @@ try {
         memberships: { create: { propertyId: property.id, role: "MANAGER" } },
       },
     });
+    const mobileManagerPassword = randomBytes(32).toString("hex");
+    const mobileManager = await prisma.user.create({data:{name:"Fictional Mobile Manager",email:randomUUID()+"@example.test",passwordHash:await argon2.hash(mobileManagerPassword),memberships:{create:{propertyId:property.id,role:"MANAGER"}}}});
     const cleanerPassword = randomBytes(32).toString("hex");
     const cleaner = await prisma.user.create({
       data: {
@@ -102,6 +107,7 @@ try {
       path,
       JSON.stringify({
         propertyId: property.id,
+        mobileManagerEmail: mobileManager.email, mobileManagerPassword,
         email: admin.email,
         password,
         code,

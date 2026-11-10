@@ -22,6 +22,48 @@ async function go(page, label) {
   await expect(page.getByText(`Loading ${label.toLowerCase()}…`)).toBeHidden();
 }
 test.afterEach(async ({ page }, info) => { if (info.status !== info.expectedStatus) await page.screenshot({path: '/tmp/lead-connect-browser-failure.png'}).catch(() => {}); });
+
+test('public areas stay separate while a manager and cleaner complete, verify and report fictional work', async ({page})=>{
+  await signIn(page);
+  await go(page,'Public Areas');
+  await expect(page.getByText('No public areas configured.',{exact:true})).toBeVisible();
+  await page.getByLabel('Optional area example').selectOption('Lobby / Front Desk');
+  await page.getByLabel('Floor or location',{exact:true}).fill('Fictional ground floor');
+  await page.getByLabel('Checklist (one item per line)').fill('Sweep floor\nWipe desk');
+  await page.getByLabel('Default assigned employee').selectOption('user:'+f.cleanerId);
+  await page.getByRole('button',{name:'Create public area',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Edit Lobby / Front Desk'})).toBeVisible();
+  await page.getByRole('button',{name:'Prepare daily assignments'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'})).toBeVisible();
+  await page.getByRole('button',{name:'Prepare daily assignments'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'})).toHaveCount(1);
+  await signOut(page);await signIn(page,f.cleanerEmail,f.cleanerPassword);await go(page,'Public Areas');
+  await expect(page.getByRole('button',{name:'Create public area',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Start cleaning',exact:true}).click();
+  const card=page.getByRole('article',{name:'Lobby / Front Desk task 1'});
+  await card.getByLabel('Sweep floor',{exact:true}).check();await card.getByLabel('Wipe desk',{exact:true}).check();
+  await card.getByLabel('Cleaning notes',{exact:true}).fill('Fictional cleaning complete');
+  await card.getByRole('button',{name:'Complete cleaning',exact:true}).click();
+  await expect(card.getByText(/COMPLETED/)).toBeVisible();
+  await expect(page.getByRole('button',{name:'Verify area cleaning'})).toHaveCount(0);
+  await signOut(page);await signIn(page);await go(page,'Public Areas');
+  await page.getByRole('button',{name:'Verify area cleaning'}).click();
+  await expect(page.getByRole('article',{name:'Lobby / Front Desk task 1'}).getByText(/VERIFIED/)).toBeVisible();
+  await page.getByText('Report maintenance for Lobby / Front Desk',{exact:true}).click();
+  await page.getByLabel('Issue',{exact:true}).fill('Fictional public lamp');
+  await page.getByLabel('Details',{exact:true}).fill('Fictional public-area repair');
+  await page.getByRole('button',{name:'Create linked maintenance request'}).click();
+  await expect(page.getByRole('status').filter({hasText:'Saved successfully'})).toBeVisible();
+  await page.getByRole('button',{name:'Show public-area report'}).click();
+  await expect(page.getByRole('heading',{name:/Public-area cleaning ·/})).toBeVisible();
+  await expect(page.getByText(/Fictional public lamp/)).toBeVisible();
+  await page.getByRole('button',{name:'History for Lobby / Front Desk'}).click();
+  await expect(page.getByRole('heading',{name:'Cleaning history · Lobby / Front Desk'})).toBeVisible();
+  await go(page,'Dashboard');await expect(page.locator('.stat').filter({hasText:/^Rooms/})).toContainText('60');
+  await go(page,'Employees');await page.getByLabel('Full name',{exact:true}).fill('Fictional directory only');
+  await page.getByRole('button',{name:'Add to directory',exact:true}).click();
+  await expect(page.getByRole('row').filter({hasText:'Fictional directory only'})).toContainText('Disabled');
+});
 test('manager, housekeeper, maintenance and front desk complete the daily workflow in Chromium', async ({ page }) => {
   await signIn(page);
   await page.reload();
@@ -115,7 +157,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await go(page, 'Reports');
   await expect(page.getByText('901', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Monthly report' }).click();
-  await expect(page.getByText('Fictional Housekeeper', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', {name:'Guest-room monthly report'}).getByText('Fictional Housekeeper', { exact: true })).toBeVisible();
 });
 test('desktop, tablet and phone layouts, keyboard access, print and outage recovery', async ({ page }) => {
   await signIn(page);
@@ -236,4 +278,57 @@ test('manager can search, edit and reload a fictional room without changing its 
   await expect(persisted.getByLabel('Room 960 type')).toHaveValue('Fictional King QA');
   await expect(persisted.getByLabel('Room 960 notes')).toHaveValue('Temporary synthetic edit');
   await expect(persisted).toContainText('Clean');
+});
+
+test('housekeeping mobile activation, private work, bilingual persistence, uncertain completion and immediate deactivation',async({page})=>{
+  await page.setViewportSize({width:390,height:844});await signIn(page,f.mobileManagerEmail,f.mobileManagerPassword);
+  const managerLogin=await page.request.post('/api/auth/login',{data:{email:f.mobileManagerEmail,password:f.mobileManagerPassword,propertyCode:f.code}});expect(managerLogin.ok()).toBeTruthy();
+  const managerToken=(await managerLogin.json()).accessToken;
+  const headers={Authorization:'Bearer '+managerToken};
+  const email=crypto.randomUUID()+'@example.test',password=crypto.randomUUID()+crypto.randomUUID();
+  const p=await page.request.post('/api/staff-directory',{headers,data:{name:'Fictional mobile access employee',email,department:'Housekeeping',employmentStatus:'ACTIVE'}});expect(p.status()).toBe(201);const profile=await p.json();
+  await go(page,'Employees');const access=page.getByRole('region',{name:'Employee access management'});
+  await access.getByLabel('Staff profile',{exact:true}).selectOption(profile.id);
+  await access.getByLabel('Individual account email',{exact:true}).fill(email);
+  await access.getByLabel('I verified this employee’s identity and authorize this access action.').check();
+  await access.getByRole('button',{name:'Issue activation code',exact:true}).click();
+  const codeField=access.getByLabel('Private one-time code',{exact:true});await expect(codeField).toBeVisible();const code=await codeField.inputValue();expect(code.length).toBeGreaterThan(32);expect(await codeField.getAttribute('type')).toBe('password');
+  const people=await page.request.get('/api/staff-directory',{headers});const userId=(await people.json()).find(x=>x.id===profile.id).userId;
+  await signOut(page);
+  await expect(page.getByLabel('Property code',{exact:true})).toHaveValue(f.code);
+  await page.getByText('Need access or forgot your password?',{exact:true}).click();
+  await page.getByLabel('Activation or recovery code',{exact:true}).fill(code);
+  await page.getByLabel('New password',{exact:true}).fill(password);
+  await page.getByLabel('Confirm password',{exact:true}).fill(password);
+  await page.getByRole('button',{name:'Set private password',exact:true}).click();
+  await expect(page.getByText('Password set. Sign in with your individual account.',{exact:true})).toBeVisible();
+  await signIn(page,email,password);await expect(page.getByRole('heading',{name:'My Work Today',level:1})).toBeVisible();
+  const rooms=await page.request.get('/api/rooms',{headers}),room=(await rooms.json()).find(x=>x.number==='960');
+  const day=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Phoenix'}).format(new Date());
+  const assigned=await page.request.post('/api/housekeeping',{headers,data:{roomId:room.id,assignedToId:userId,scheduledFor:day,cleaningType:'DEEP_CLEAN',instructions:'Fictional mobile instructions'}});expect(assigned.status()).toBe(201);const task=await assigned.json();
+  const areaCreated=await page.request.post('/api/public-areas',{headers,data:{name:'Fictional mobile access area',location:'Fictional lobby',department:'Housekeeping',frequency:'DAILY',checklist:['Wipe fixture'],assignedToId:userId}});expect(areaCreated.status()).toBe(201);const area=await areaCreated.json();
+  const areaAssigned=await page.request.post('/api/public-areas/'+area.id+'/tasks',{headers,data:{date:day}});expect(areaAssigned.status()).toBe(201);const areaTask=await areaAssigned.json();
+  await page.getByRole('button',{name:'Refresh work',exact:true}).click();const card=page.getByRole('article',{name:'Guest rooms: 960'});await expect(card).toBeVisible();
+  await expect(page.getByRole('article',{name:'Guest rooms: 901'})).toHaveCount(0);await expect(card).toContainText('Fictional mobile instructions');
+  const button=card.getByRole('button',{name:'Start',exact:true});const box=await button.boundingBox();expect(box.height).toBeGreaterThanOrEqual(48);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBeTruthy();
+  await button.click();await expect(card.getByRole('button',{name:'Complete',exact:true})).toBeVisible();
+  let completions=0;
+  await page.route('**/api/housekeeping/'+task.id,async route=>{
+    if(route.request().method()==='PATCH'&&route.request().postDataJSON().status==='COMPLETED'){completions++;await route.fetch();await route.abort('failed');}else await route.continue();
+  });
+  await card.getByRole('button',{name:'Complete',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'Change not confirmed.'})).toBeVisible();
+  expect(completions).toBe(1);await expect(card.getByRole('button',{name:'Complete',exact:true})).toBeDisabled();
+  await expect(page.getByText('Saved — completion confirmed.',{exact:true})).toHaveCount(0);await page.unroute('**/api/housekeeping/'+task.id);
+  await page.getByRole('button',{name:'Refresh work',exact:true}).click();await expect(card.getByRole('button',{name:'Complete',exact:true})).toHaveCount(0);await expect(card).toContainText('Awaiting inspection');expect(completions).toBe(1);
+  const areaCard=page.getByRole('article',{name:'Fictional mobile access area'});await areaCard.getByRole('button',{name:'Start',exact:true}).click();await areaCard.getByLabel('Wipe fixture',{exact:true}).check();await areaCard.getByRole('button',{name:'Complete',exact:true}).click();await expect(page.getByText('Saved — completion confirmed.',{exact:true})).toBeVisible();
+  expect((await page.request.patch('/api/housekeeping/'+task.id,{headers,data:{status:'VERIFIED'}})).status()).toBe(200);
+  expect((await page.request.patch('/api/public-area-tasks/'+areaTask.id,{headers,data:{status:'VERIFIED'}})).status()).toBe(200);
+  await page.getByRole('button',{name:'Refresh work',exact:true}).click();await expect(card).toContainText('Verified');await expect(areaCard).toContainText('Verified');
+  await page.getByLabel('Language',{exact:true}).selectOption('es');await expect(page.getByRole('heading',{name:'Mi trabajo de hoy',level:1})).toBeVisible();
+  await page.reload();await expect(page.getByRole('heading',{name:'Mi trabajo de hoy',level:1})).toBeVisible();await expect(page.getByRole('button',{name:'Cerrar sesión',exact:true})).toBeVisible();
+  expect((await page.request.patch('/api/employee-access/'+profile.id,{headers,data:{isActive:false,identityConfirmed:true}})).status()).toBe(200);
+  await page.getByRole('button',{name:'Actualizar trabajo',exact:true}).click();await expect(page.getByRole('button',{name:'Iniciar sesión',exact:true})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Mi trabajo de hoy'})).toHaveCount(0);await expect(page.getByLabel('Código del hotel',{exact:true})).toHaveValue(f.code);
+  expect((await page.request.post('/api/auth/login',{data:{email,password,propertyCode:f.code}})).status()).toBe(401);
 });

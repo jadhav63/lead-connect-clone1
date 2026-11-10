@@ -46,6 +46,8 @@ afterAll(async () => {
   const propertyIds = [hotelPropertyId, demoPropertyId];
   await prisma.auditLog.deleteMany({ where: { propertyId: { in: propertyIds } } });
   await prisma.staffDirectoryEntry.deleteMany({ where: { propertyId: { in: propertyIds } } });
+  await prisma.roomStatusEvent.deleteMany({ where: { room: { propertyId: { in: propertyIds } } } });
+  await prisma.room.deleteMany({ where: { propertyId: { in: propertyIds } } });
   await prisma.propertyMembership.deleteMany({ where: { propertyId: { in: propertyIds } } });
   await prisma.user.deleteMany({ where: { id: { in: users } } });
   await prisma.property.deleteMany({ where: { id: { in: propertyIds } } });
@@ -129,5 +131,14 @@ describe("property setup and employee directory", () => {
     const result = await api("manager").post("/room-inventory/apply", { propertyCode: "58835", rooms, approvalReference: "JD-APPROVED-TEST-0001" });
     expect(result.status).toBe(403);
     expect(await prisma.room.count({ where: { propertyId: hotelPropertyId } })).toBe(0);
+  });
+
+  it('prevents manual room creation and map changes from bypassing the approved real-hotel inventory', async()=>{
+    expect((await api('manager').post('/rooms',{number:'199',floor:1})).status).toBe(403);
+    const row=await prisma.room.create({data:{propertyId:hotelPropertyId,number:'199',floor:1,roomType:'AC1',status:'DIRTY',occupancyStatus:'OCCUPIED'}});
+    expect((await api('manager').patch('/rooms/'+row.id,{version:row.version,roomType:'RM2'})).status).toBe(403);
+    expect((await api('manager').patch('/rooms/'+row.id,{version:row.version,floor:2})).status).toBe(403);
+    const update=await api('manager').patch('/rooms/'+row.id,{version:row.version,notes:'Fictional operational note',roomType:'AC1',floor:1});
+    expect(update.status).toBe(200);expect(update.body).toMatchObject({roomType:'AC1',floor:1,occupancyStatus:'OCCUPIED',status:'DIRTY'});
   });
 });

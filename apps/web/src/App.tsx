@@ -2,6 +2,12 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { api, login, logout, forgetSession } from "./api";
 import { parseRoomCSV } from "./csv";
 import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
+import { PublicAreas, PublicAreaReport } from "./PublicAreas";
+import { PropertyOnboarding } from "./PropertyOnboarding";
+import {MyWorkToday} from './MyWorkToday';
+import {EmployeeRecovery} from './EmployeeRecovery';
+import {EmployeeAccessPanel} from './EmployeeAccessPanel';
+import {LanguageProvider,LanguageSelect,useLanguage,rememberedHotel,rememberHotel} from './mobile-language';
 import {
   type Employee,
   type Room,
@@ -71,10 +77,12 @@ export function RoomCard({
   room,
   editable,
   onSave,
+  inventoryLocked = false,
 }: {
   room: Room;
   editable: boolean;
   onSave: (data: unknown) => Promise<boolean>;
+  inventoryLocked?: boolean;
 }) {
   const [status, setStatus] = useState(room.status),
     [occupancy, setOccupancy] = useState(room.occupancyStatus),
@@ -155,8 +163,8 @@ export function RoomCard({
             />
           </div>
           <div className="two">
-            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
-            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
+            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving || inventoryLocked} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
+            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving || inventoryLocked} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
           </div>
           <label className="control">
             <span>Room notes</span>
@@ -400,7 +408,9 @@ function AssignmentRow({
     </tr>
   );
 }
-export default function App() {
+export default function App(){return <LanguageProvider><HotelApp/></LanguageProvider>;}
+function HotelApp() {
+  const {t,language}=useLanguage();
   const [identity, setIdentity] = useState<Identity | null>(null),
     [checking, setChecking] = useState(true),
     [page, setPage] = useState("Dashboard"),
@@ -427,10 +437,11 @@ export default function App() {
   const desk = manager || (identity?.roles.includes("FRONT_DESK") ?? false);
   useEffect(() => {
     api<Identity>("/auth/me")
-      .then(setIdentity)
+      .then(value=>{setIdentity(value);if(value.roles.includes('HOUSEKEEPING')&&!value.roles.some(r=>['ADMIN','MANAGER'].includes(r)))setPage('My Work Today');})
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
+  useEffect(()=>{const ended=()=>{setIdentity(null);setRooms([]);setData({});setProperty(null);setPage('Dashboard');};window.addEventListener('lead-connect-session-ended',ended);return()=>window.removeEventListener('lead-connect-session-ended',ended);},[]);
   const loadSequence = useRef(0);
   const activeView = useRef({ identity, page, day, reportPeriod, reportMonth });
   activeView.current = { identity, page, day, reportPeriod, reportMonth };
@@ -451,7 +462,7 @@ export default function App() {
         Reports: reportPeriod === "MONTH" ? "/reports?month=" + reportMonth : "/reports?date=" + day,
       };
       const [rs, ps, people, pageData, overdue] = await Promise.all([
-        api<Room[]>("/rooms"),
+        page==='My Work Today'?Promise.resolve([]):api<Room[]>("/rooms"),
         api("/properties/current"),
         desk ? api<Employee[]>("/employees") : Promise.resolve([]),
         page === "Front Desk"
@@ -513,9 +524,11 @@ export default function App() {
         String(fields.get("password")),
         String(fields.get("propertyCode")),
       );
-      setIdentity(await api<Identity>("/auth/me"));
+      const value=await api<Identity>("/auth/me");setIdentity(value);
+      rememberHotel(String(fields.get('propertyCode')));
+      setPage(value.roles.includes('HOUSEKEEPING')&&!value.roles.some(r=>['ADMIN','MANAGER'].includes(r))?'My Work Today':'Dashboard');
     } catch (e) {
-      setError((e as Error).message);
+      setError(language==='es'?t('Sign-in failed. Check your hotel, email and password, or contact your manager.'):(e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -523,7 +536,7 @@ export default function App() {
   if (checking)
     return (
       <main className="loading" role="status">
-        Connecting to Lead Connect…
+        {t('Connecting to Lead Connect…')}
       </main>
     );
   if (!identity)
@@ -532,22 +545,23 @@ export default function App() {
         <div className="login-brand">
           <span className="brand-mark">LC</span>
           <h1>Lead Connect</h1>
-          <p>Hotel operations, connected.</p>
+          <p>{t('Hotel operations, connected.')}</p>
+          <LanguageSelect/>
           <span className="test-label">{import.meta.env.VITE_APP_ENV === "production" ? "Hotel staff access" : "Separate test project"}</span>
         </div>
         <form onSubmit={signIn} className="login-form">
-          <h2>Sign in to your property</h2>
-          <p className="muted">Use an account created by your administrator.</p>
+          <h2>{t('Sign in to your property')}</h2>
+          <p className="muted">{t('Use your individual employee account.')}</p>
           <label className="control">
-            Property code
-            <input name="propertyCode" autoComplete="organization" required />
+            {t('Property code')}
+            <input name="propertyCode" autoComplete="organization" required maxLength={64} defaultValue={rememberedHotel()}/>
           </label>
           <label className="control">
-            Email
+            {t('Email')}
             <input name="email" type="email" autoComplete="username" required />
           </label>
           <label className="control">
-            Password
+            {t('Password')}
             <input
               name="password"
               type="password"
@@ -562,15 +576,19 @@ export default function App() {
             </p>
           )}
           {success && <p role="status" className="success">{success}</p>}
-          <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
+          <button disabled={busy}>{t(busy ? "Signing in…" : "Sign in")}</button>
+          <small>{t('Hotel remembered on this device. No password is stored here.')}</small>
           <small>{import.meta.env.VITE_APP_ENV === "production" ? "Authorized hotel employees only." : "No public registration. No live hotel data."}</small>
         </form>
+        <EmployeeRecovery/>
       </main>
     );
   const nav = [
+    ...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
     "Dashboard",
     "Rooms",
     "Housekeeping",
+    "Public Areas",
     "Maintenance",
     "Notifications",
     ...(desk ? ["Front Desk", "Employees"] : []),
@@ -612,11 +630,12 @@ export default function App() {
                 setSuccess("");
               }}
             >
-              {n}
+              {t(n)}
             </button>
           ))}
         </nav>
         <div className="profile">
+          <LanguageSelect/>
           <strong>{identity.user.name}</strong>
           <small>{identity.roles.map(label).join(" · ")}</small>
           <button
@@ -632,7 +651,7 @@ export default function App() {
               setPage("Dashboard");
             }}
           >
-            Sign out
+            {t('Sign out')}
           </button>
         </div>
       </aside>
@@ -640,9 +659,9 @@ export default function App() {
         <header className="topbar">
           <div>
             <small>{property?.name ?? "Your property"}</small>
-            <h1>{page}</h1>
+              <h1>{t(page)}</h1>
           </div>
-          <div className="top-actions">
+          {page!=='My Work Today'&&<div className="top-actions">
             <label className="control">
               <span>Business date · Arizona</span>
               <input
@@ -659,7 +678,7 @@ export default function App() {
             >
               Refresh
             </button>
-          </div>
+          </div>}
         </header>
         <p className="print-only">{property?.name ?? "Your property"} · {page} · {page === "Reports" && reportPeriod === "MONTH" ? reportMonth : day} (Arizona)</p>
         {success && (
@@ -694,7 +713,7 @@ export default function App() {
             finally { setBusy(false); }
           }}>
             <h2>Change your password</h2>
-            <p>Use your own password. Changing it signs out remembered sessions. Other open sessions can remain active for up to 15 minutes.</p>
+            <p>Use your own password. Changing it immediately invalidates existing account sessions.</p>
             <label className="control">Current password<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} /></label>
             <label className="control">New password<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
             <label className="control">Confirm new password<input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
@@ -780,6 +799,10 @@ export default function App() {
             </div>
           </>
         )}
+        {page === "Public Areas" && <PublicAreas key={identity.user.id} day={day} manager={manager} userId={identity.user.id} />}
+        {page === 'My Work Today' && <MyWorkToday/>}
+        {page === "Settings" && manager && <PropertyOnboarding />}
+        {page === "Reports" && <><PublicAreaReport day={day} /><h2>Guest-room cleaning report</h2></>}
         {page === "Rooms" && (
           <>
             {manager && property?.code === "58835" && <RoomInventoryPreview />}
@@ -808,7 +831,7 @@ export default function App() {
                 Vacant
               </span>
             </div>
-            {desk && (
+            {desk && property?.code !== '58835' && (
               <FormPanel
                 title="Add room"
                 fields={[
@@ -834,6 +857,7 @@ export default function App() {
                   key={room.id}
                   room={room}
                   editable={desk}
+                  inventoryLocked={property?.code === '58835'}
                   onSave={(b) => run("/rooms/" + room.id, "PATCH", b)}
                 />
               ))}
@@ -1043,7 +1067,7 @@ export default function App() {
                     </div>
                     <p>{t.description}</p>
                     <p className="muted">
-                      {t.room ? "Room " + t.room.number : "Public area"} ·{" "}
+                      {t.room ? "Room " + t.room.number : t.publicArea ? "Public area · " + t.publicArea.name + " · " + t.publicArea.location : "General maintenance"} ·{" "}
                       {t.assignedTo?.name ?? "Unassigned"}
                     </p>
                     {desk && (
@@ -1270,6 +1294,7 @@ export default function App() {
         {page === "Employees" && (
           <>
             {manager && <HotelStaffDirectory />}
+            {manager && <EmployeeAccessPanel administrator={identity.roles.includes('ADMIN')}/>}
             {manager && (
               <FormPanel
                 title="Create employee account"
@@ -1421,7 +1446,7 @@ export default function App() {
                   <article className="stat"><small>Estimated completed minutes</small><strong>{data.totals?.estimatedCompletedMinutes ?? 0}</strong></article>
                   <article className="stat"><small>Tracked elapsed minutes</small><strong>{data.totals?.trackedElapsedMinutes ?? 0}</strong></article>
                 </div>
-                <section className="panel">
+                <section className="panel" aria-label="Guest-room monthly report">
                   <h2>Monthly employee cleaning totals · {data.month ?? reportMonth}</h2>
                   <p>Estimates use the default service times. Tracked elapsed time runs from Start to Complete and does not subtract breaks or pauses.</p>
                   <div className="table-wrap">

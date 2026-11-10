@@ -7,6 +7,7 @@ import { HttpError } from '../lib/errors.js';
 import { changePassword, login, revokeRefresh, rotateRefresh } from '../services/auth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { prisma } from '../lib/db.js';
+import { redeemAccessGrant } from '../services/employee-access.js';
 const router = Router();
 // CORS alone does not reject state-changing requests from hostile browser origins.
 router.use((req, _res, next) => {
@@ -62,6 +63,12 @@ router.post('/password', requireAuth, passwordLimiter, async (req, res) => {
   const input = z.object({ currentPassword: z.string().min(1).max(128), newPassword: z.string().min(12).max(128) }).strict().parse(req.body);
   await changePassword(req.auth!.userId, req.auth!.propertyId, input.currentPassword, input.newPassword);
   res.clearCookie('lead_refresh', { ...cookieOptions, maxAge: undefined });
+  res.status(204).send();
+});
+router.post('/redeem-access', passwordLimiter, async(req,res)=>{
+  const input=z.object({code:z.string().min(32).max(512),password:z.string().min(12).max(128)}).strict().parse(req.body);
+  await redeemAccessGrant(input.code,input.password);
+  res.clearCookie('lead_refresh',{...cookieOptions,maxAge:undefined});
   res.status(204).send();
 });
 router.get('/me', requireAuth, async (req, res) => {

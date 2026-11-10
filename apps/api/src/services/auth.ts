@@ -29,7 +29,7 @@ export async function login(email: string, password: string, propertyCode: strin
     }});
   });
   return {
-    accessToken: accessToken(user.id, membership.propertyId), refreshToken: refresh,
+    accessToken: accessToken(user.id, membership.propertyId, user.sessionVersion), refreshToken: refresh,
     user: { id: user.id, name: user.name, email: user.email, propertyId: membership.propertyId }
   };
 }
@@ -57,7 +57,7 @@ export async function rotateRefresh(raw: string) {
       userId: user.id, propertyId: existing.propertyId,
       tokenHash: hashToken(refresh), expiresAt: refreshExpiry()
     }});
-    return { accessToken: accessToken(user.id, existing.propertyId), refreshToken: refresh };
+    return { accessToken: accessToken(user.id, existing.propertyId, user.sessionVersion), refreshToken: refresh };
   }, { isolationLevel: 'Serializable' }).then(result => {
     if (!result) throw new HttpError(401, 'Invalid session');
     return result;
@@ -76,7 +76,7 @@ export async function changePassword(userId: string, propertyId: string, current
   if (currentPassword === newPassword) throw new HttpError(400, 'Choose a different password');
   const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
   await prisma.$transaction(async tx => {
-    const updated = await tx.user.updateMany({ where: { id: userId, passwordHash: user.passwordHash, isActive: true, deletedAt: null }, data: { passwordHash } });
+    const updated = await tx.user.updateMany({ where: { id: userId, passwordHash: user.passwordHash, isActive: true, deletedAt: null }, data: { passwordHash, sessionVersion: { increment: 1 } } });
     if (updated.count !== 1) throw new HttpError(409, 'Account changed; sign in again');
     await tx.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.auditLog.create({ data: { propertyId, actorId: userId, action: 'UPDATE', entityType: 'UserPassword', entityId: userId } });

@@ -21,6 +21,13 @@ const room = {
   version: 3,
 };
 describe("room save workflow", () => {
+  it('locks the approved real-hotel map while keeping operational statuses editable',()=>{
+    render(<RoomCard room={room} editable inventoryLocked onSave={vi.fn()} />);
+    expect((screen.getByLabelText('Room 101 type') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Room 101 floor') as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Room 101 status') as HTMLSelectElement).disabled).toBe(false);
+    expect((screen.getByLabelText('Room 101 occupancy') as HTMLSelectElement).disabled).toBe(false);
+  });
   it("sends edits only after Save and shows success after the request succeeds", async () => {
     const save = vi.fn().mockResolvedValue(true);
     render(<RoomCard room={room} editable onSave={save} />);
