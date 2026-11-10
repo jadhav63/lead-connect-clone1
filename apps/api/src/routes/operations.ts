@@ -983,7 +983,7 @@ router.get("/housekeeping/live-progress", frontDesk, async (req,res)=>{
       .map(t=>({id:t.id,room:t.room.number,status:t.status,at:t.updatedAt.toISOString()}))
   });
 });
-router.get("/dashboard", async (req, res) => {
+router.get("/dashboard", frontDesk, async (req, res) => {
   const propertyId = auth(req).propertyId;
   const day = businessDate(req);
   const [rooms, cleaning, tickets, frontDeskTasks, handovers, overdueCleaning, overdueFrontDesk, overdueMaintenance] =
