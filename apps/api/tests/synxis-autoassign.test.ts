@@ -5,7 +5,7 @@ import { buildAssignmentPlan } from '../src/services/housekeeping-planner.js';
 import { defaultHousekeepingRules } from '../src/routes/housekeeping-rules.js';
 
 function block(x:number,y:number,text:string){
-  return 'BT\n/F1 10 Tf\n'+x+'. '+y+'. Td\n('+text+') Tj\nET\n';
+  return 'BT\n/F1 10 Tf\n'+x+' '+y+' Td\n('+text+') Tj\nET\n';
 }
 function fixture() {
   const lines=[block(45,550,'91952-Tombstone Grand Hotel, a Baymont by Wyndham')];
