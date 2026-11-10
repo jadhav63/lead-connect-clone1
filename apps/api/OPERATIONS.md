@@ -1,5 +1,10 @@
 # Operational API — current test checkpoint (November 8, 2026)
 
+## Production candidate — November 8, 2026
+
+The production candidate is prepared on `release/production-readiness-20261108`, draft PR #1. Production is NOT approved. Use [production readiness](../../docs/production/PRODUCTION_READINESS.md), [verification](../../docs/production/VERIFICATION.md), [launch gates](../../docs/production/LAUNCH_CHECKLIST.md), [onboarding](../../docs/production/OPERATING_AND_ONBOARDING.md) and [backup/rollback](../../docs/production/BACKUP_AND_ROLLBACK.md) as the current instructions. Existing production-labeled service must remain untouched; never repeat the completed render-test migration. The separate Free same-origin RC preview uses only test data and is not a staff system.
+
+
 ## Current runtime database configuration
 
 `src/lib/database-config.ts` supplies one explicit `pg.Pool` shared with PrismaPg. It decodes URL credentials exactly once, fixes schema to public, rejects connection/TLS override parameters, uses five pooled clients with a 15-second connection timeout, and enables channel binding for TLS connections. Canonical remote URLs use `sslmode=verify-full&channel_binding=require`. Legacy `sslmode=require` is accepted only as input and upgraded to explicit certificate/hostname verification (`rejectUnauthorized: true`); no URL SSL options reach the driver. On Render's `lead-connect-api-staging`, the exact approved pooled host/database/role are enforced. Readiness checks the TLS socket, database/schema identity, and an actual Prisma query. Public responses contain only ready/unavailable. Private structured logs contain allowlisted error category/code, never messages, credentials, URLs, query values or tokens.

@@ -6,6 +6,13 @@ import { app } from '../src/app.js';
 
 afterEach(() => { vi.restoreAllMocks(); check.mockReset(); });
 describe('public readiness privacy', () => {
+  it('stops advertising readiness while draining without reconnecting to the database', async () => {
+    app.locals.draining = true;
+    try {
+      expect((await request(app).get('/api/ready')).status).toBe(503);
+      expect(check).not.toHaveBeenCalled();
+    } finally { app.locals.draining = false; }
+  });
   it('returns only unavailable while recording an allowlisted authentication failure privately', async () => {
     const log = vi.spyOn(console, 'error').mockImplementation(() => {});
     check.mockRejectedValue(Object.assign(new Error('password=private-sentinel postgresql://private-sentinel'), { code: '28P01' }));

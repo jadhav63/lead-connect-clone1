@@ -4,3 +4,45 @@ node_modules/
 !.env.example
 dist/
 apps/api/src/generated/
+
+# Local PostgreSQL dumps and encrypted backup archives
+*.dump
+*.dump.*
+*.pgdump
+*.sql.gz
+*.sql.dump
+*.aesgcm
+*.backup
+
+# Backup credentials and key material (including DPAPI exports)
+*.pgpass
+*.key
+*.keyfile
+*.key.bin
+*.aeskey
+*.pem
+*.p12
+*.pfx
+*.dpapi
+*.secrets.json
+*.credentials
+*.cred
+config.local.*
+secrets/
+backup/config.json
+backup/**/*key*.bin
+backup/**/aes-key*
+backup/**/recovery-key*
+
+# Local test output, temporary files and synthetic archives
+*.tmp
+*.temp
+*.log
+*.jsonl
+*.test-output
+*.test-results.json
+*.coverage
+backup/coverage/
+backup/test-results/
+backup/validation-reports/
+backup/task-preview.xml

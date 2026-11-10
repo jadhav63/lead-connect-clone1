@@ -3,7 +3,7 @@ import pg from "pg";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync } from "node:fs";
-import { assertRenderTestTarget, renderTestClientConfig, RENDER_TEST_DIRECT_HOST } from "./render-test-target.mjs";
+import { assertRenderTestTarget, renderTestClientConfig } from "./render-test-target.mjs";
 import { assertRenderTestSession, expectedMigrationCatalog, readMigrationCatalog, assertMigrationCatalog } from "./migration-catalog.mjs";
 
 async function main() {
@@ -20,7 +20,7 @@ async function main() {
       current_setting('ssl') AS ssl_setting,
       (SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()) AS tls`);
     const transport = client.connection?.stream;
-    assertRenderTestSession(session.rows[0], transport, RENDER_TEST_DIRECT_HOST);
+    assertRenderTestSession(session.rows[0], transport, new URL(process.env.DIRECT_URL).hostname, process.env.RENDER_TEST_DIRECT_HOST);
     const tables = (
       await client.query(
         "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",

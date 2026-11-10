@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
 import App from "./App";
 const { mockAPI } = vi.hoisted(() => ({ mockAPI: vi.fn() }));
-vi.mock("./api", () => ({ api: mockAPI, login: vi.fn(), logout: vi.fn() }));
+vi.mock("./api", () => ({ api: mockAPI, login: vi.fn(), logout: vi.fn(), forgetSession: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 const identity = { user: { id: "test-manager", name: "Fictional Manager" }, roles: ["MANAGER"], propertyId: "test-property" };
 function deferred<T>() { let resolve!: (v: T) => void; let reject!: (v: Error) => void; const promise = new Promise<T>((a,b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; }
@@ -15,7 +15,54 @@ function defaults(path: string) {
   if (path.startsWith("/housekeeping")) return [];
   return {};
 }
+it('lets an employee change their own password and signs them out without exposing it', async () => {
+  mockAPI.mockImplementation((path: string) => Promise.resolve(path === '/auth/me' ? { ...identity, roles: ['HOUSEKEEPING'] } : defaults(path)));
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: /^Account$/ }));
+  const password = crypto.randomUUID();
+  fireEvent.change(await screen.findByLabelText('Current password'), { target: { value: password } });
+  fireEvent.change(screen.getByLabelText('New password', { exact: true }), { target: { value: password + 'new' } });
+  fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: password + 'new' } });
+  fireEvent.click(screen.getByRole('button', { name: /^Change password$/ }));
+  expect(await screen.findByText('Password changed. Sign in with your new password.')).toBeTruthy();
+  expect(screen.getByRole('button', { name: /^Sign in$/ })).toBeTruthy();
+  expect(mockAPI).toHaveBeenCalledWith('/auth/password', 'POST', { currentPassword: password, newPassword: password + 'new' });
+});
 describe("dashboard loading and navigation", () => {
+  it("keeps Tombstone import controls hidden on the separate LCD60 demo property", async () => {
+    mockAPI.mockImplementation((path: string) => Promise.resolve(
+      path === "/auth/me" ? identity : path === "/properties/current" ? { code: "LCD60", name: "Canyon Lantern Demo Lodge" } : defaults(path),
+    ));
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Rooms$/ }));
+    expect(screen.queryByText("Preview Tombstone 60-room inventory (manager only)")).toBeNull();
+    expect(screen.getByText("No rooms match. Add your fictional test inventory to begin.")).toBeTruthy();
+  });
+  it("shows the dirty checkout queue, opens assignment by default, and loads overdue work separately", async () => {
+    mockAPI.mockImplementation((path: string) => {
+      if (path === "/auth/me") return Promise.resolve(identity);
+      if (path === "/rooms") return Promise.resolve([{ id: "room-901", number: "901", floor: 1, roomType: "RM2", status: "DIRTY", occupancyStatus: "DEPARTURE", notes: null, version: 1 }]);
+      if (path.startsWith("/housekeeping/overdue")) return Promise.resolve([]);
+      if (path.startsWith("/housekeeping?")) return Promise.resolve([]);
+      return Promise.resolve(defaults(path));
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /^Housekeeping$/ }));
+    expect(await screen.findByText("Dirty checkout and stayover queue · " + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Phoenix" }).format(new Date()))).toBeTruthy();
+    expect((await screen.findAllByText("Room 901")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Checkout")).length).toBeGreaterThan(0);
+    expect((screen.getByText("Assign a room").closest("details") as HTMLDetailsElement).open).toBe(true);
+    expect(mockAPI).toHaveBeenCalledWith(expect.stringMatching(/^\/housekeeping\/overdue\?before=\d{4}-\d{2}-\d{2}$/));
+  });
+  it('clears array data before rendering a different operational page', async () => {
+    mockAPI.mockImplementation((path: string) => Promise.resolve(path.startsWith('/housekeeping') ? [{ id: 'cleaning', room: { id: 'room', number: '901', notes: null }, assignedToId: null, assignedTo: null, cleaningType: 'CHECKOUT', status: 'PENDING' }] : defaults(path)));
+    render(<App />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Housekeeping$/ }));
+    await screen.findAllByText('901');
+    fireEvent.click(screen.getByRole('button', { name: /^Maintenance$/ }));
+    expect(await screen.findByRole('heading', { name: /^Maintenance$/, level: 1 })).toBeTruthy();
+    await screen.findByText('No maintenance tickets available.');
+  });
   it("announces loading and ignores a previous page response after navigation", async () => {
     const old = deferred<unknown>();
     mockAPI.mockImplementation((path: string) => path.startsWith("/dashboard") ? old.promise : Promise.resolve(defaults(path)));

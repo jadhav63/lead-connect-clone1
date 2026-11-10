@@ -1,10 +1,11 @@
-// Public endpoint identity independently checked in the Neon render-test console.
-// These are endpoint names, not credentials. No production endpoint is accepted.
-export const RENDER_TEST_DIRECT_HOST = "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech";
 export function assertRenderTestTarget(environment) {
+  const directHost = environment.RENDER_TEST_DIRECT_HOST;
+  const pooledHost = environment.RENDER_TEST_POOLED_HOST;
+  if (!directHost || !pooledHost || directHost === pooledHost || !directHost.endsWith(".neon.tech") || !pooledHost.endsWith(".neon.tech"))
+    throw new Error("RENDER_TEST_DIRECT_HOST and RENDER_TEST_POOLED_HOST must identify the approved Neon test endpoint");
   const hosts = {
-    DATABASE_URL: "ep-old-truth-aror3gey-pooler.c-4.us-west-2.aws.neon.tech",
-    DIRECT_URL: RENDER_TEST_DIRECT_HOST,
+    DATABASE_URL: pooledHost,
+    DIRECT_URL: directHost,
   };
   for (const [key, hostname] of Object.entries(hosts)) {
     let url;

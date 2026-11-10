@@ -1,5 +1,20 @@
 # Architecture
 
+## Current production-readiness checkpoint — November 8, 2026, 16:53 Arizona
+
+This checkpoint supersedes historical connection/deployment blockers below. Main remains `4e24d541102f13ee21635a399bb8322df6358b4f`; production candidate code is `1100c3d352ffed2d871c617be4840f2e87bb17db` on `release/production-readiness-20261108`, [draft PR #1](https://github.com/jadhav63/lead-connect-clone1/pull/1). The existing production-labeled service was not changed. No paid resource, real employee/guest import or staff launch occurred.
+
+Staging authentication was privately reconciled without another password reset; health/readiness pass. The completed Neon render-test migration was not repeated. The original 43 API assertions were audited as API evidence, not browser/restore/load certification. A NEW Free same-origin preview is live at https://lead-connect-rc-staging.onrender.com (`srv-dbogj2ajnfac73er4kag`, deploy `dep-dbogjhh5efls73dqemi0`, Auto-Deploy Off). It uses only the approved render-test database; original staging services remain unchanged. Its safe log confirms verify-full TLS, channel binding and target validation. Build dependency inclusion under production NODE_ENV was corrected for the preview and production draft.
+
+Verified locally: 123 backend tests; 25 frontend tests and 1 old opt-in test skipped; both TypeScript/builds and production dependency audits passed; 3 actual Chromium workflow/viewport/accessibility/print/session/outage/password tests passed. Encrypted local dump/decrypt/restore, row/migration comparisons, restored login/property authorization and least-privilege grants passed. Independent [GitHub CI run 42536916013](https://github.com/jadhav63/lead-connect-clone1/actions/runs/42536916013) passed using PostgreSQL 18, including its three browser tests. Deployed authenticated browser acceptance did NOT pass: execution-environment proxy certificate trust blocked it; verification was not bypassed and temporary trust entries were removed. Only the owned temporary cloud acceptance fixture was cleaned up, preserving the original demo.
+
+Production decision: **NO-GO until launch gates are closed.** A separate production architecture/configuration is prepared, not provisioned: new Render same-origin service, independent Neon project/database, unique runtime/migrator/backup credentials, seven-day recovery history and encrypted offsite backups. Estimated example $50.58/month; recommend $60 initial budget subject to JD approval and variable usage. No production identity or secret is yet confirmed.
+
+Real room structure was extracted from the existing August 17 inventory: 60 identifiers, 26 first-floor/34 second-floor, seven room codes. Every room's current service status remains UNVERIFIED. No real inventory was imported. Current room/OOS approval, maintenance daily checklists/due dates/productivity reports, account recovery, cloud backup/restore, HTTPS authenticated acceptance and physical-device/printer testing remain launch gates.
+
+Authoritative report: [Production readiness](../production/PRODUCTION_READINESS.md). Evidence: [Verification](../production/VERIFICATION.md). Exact approval gates: [Launch checklist](../production/LAUNCH_CHECKLIST.md). Procedures: [Onboarding](../production/OPERATING_AND_ONBOARDING.md) and [Backup/rollback](../production/BACKUP_AND_ROLLBACK.md). Do not use older demo/reset instructions as current production instructions.
+
+
 ## Backend and database
 apps/api: Node 24, Express 5, TypeScript, Prisma 7 with PostgreSQL adapter. PostgreSQL is authoritative operational storage; Drive is documentation/backup storage only.
 

@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import type { Prisma } from "../generated/prisma/client.js";
 import type { NotificationType, UserRole } from "../generated/prisma/enums.js";
 import { elapsedCleaningMinutes, estimatedCleaningMinutes } from "../services/cleaning-time.js";
+import { revokeEmployeeSessions } from '../services/employee-access.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -23,8 +24,9 @@ const roomStatuses = [
   "INSPECTION",
   "MAINTENANCE",
   "OUT_OF_ORDER",
+  "UNKNOWN",
 ] as const;
-const occupancies = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE"] as const;
+const occupancies = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE", "UNKNOWN"] as const;
 const cleaningTypes = [
   "CHECKOUT",
   "STAYOVER",
@@ -208,9 +210,11 @@ router.patch("/employees/:membershipId", management, async (req, res) => {
         where: { id: membershipId, propertyId: auth(req).propertyId },
       });
       if (!current) throw new HttpError(404, "Membership not found");
+      const linkedProfile=await tx.staffDirectoryEntry.findFirst({where:{propertyId:current.propertyId,userId:current.userId}});
+      if(data.isActive && linkedProfile && (!linkedProfile.appAccessEnabled || linkedProfile.employmentStatus!=='ACTIVE'))throw new HttpError(409,'Issue a fresh activation code for this approved staff profile');
       if (
         current.userId === auth(req).userId ||
-        (current.role === "ADMIN" && !auth(req).roles.includes("ADMIN"))
+        (["ADMIN","MANAGER"].includes(current.role) && !auth(req).roles.includes("ADMIN"))
       )
         throw new HttpError(403, "Cannot change this membership");
       await tx.propertyMembership.update({ where: { id: membershipId }, data });
@@ -223,6 +227,12 @@ router.patch("/employees/:membershipId", management, async (req, res) => {
           },
           data: { revokedAt: new Date() },
         });
+      if (!data.isActive) {
+        await revokeEmployeeSessions(tx,current.userId);
+        // Deactivation removes every role for this property, including linked profiles.
+        await tx.propertyMembership.updateMany({where:{propertyId:current.propertyId,userId:current.userId},data:{isActive:false}});
+        await tx.staffDirectoryEntry.updateMany({where:{propertyId:current.propertyId,userId:current.userId},data:{appAccessEnabled:false}});
+      }
       await audit(tx, req, "PropertyMembership", membershipId, "UPDATE");
       return { id: membershipId, ...data };
     }, serial),
@@ -268,6 +278,8 @@ router.post("/rooms", frontDesk, async (req, res) => {
     .parse(req.body);
   res.status(201).json(
     await prisma.$transaction(async (tx) => {
+      const property = await tx.property.findUniqueOrThrow({ where: { id: auth(req).propertyId }, select: { code: true } });
+      if (property.code === '58835') throw new HttpError(403, 'Use the independently approved 60-room inventory workflow for this hotel; manual room creation is disabled');
       const created = await tx.room.create({
         data: { ...data, propertyId: auth(req).propertyId },
       });
@@ -285,12 +297,17 @@ router.patch("/rooms/:roomId", frontDesk, async (req, res) => {
       occupancyStatus: z.enum(occupancies).optional(),
       notes: z.string().max(2000).nullable().optional(),
       roomType: z.string().max(100).nullable().optional(),
+      floor: z.number().int().min(1).max(2).optional(),
     })
     .strict()
     .parse(req.body);
   res.json(
     await prisma.$transaction(async (tx) => {
       const current = await room(tx, auth(req).propertyId, roomId);
+      if ((data.roomType !== undefined && data.roomType !== current.roomType) || (data.floor !== undefined && data.floor !== current.floor)) {
+        const property = await tx.property.findUniqueOrThrow({ where: { id: auth(req).propertyId }, select: { code: true } });
+        if (property.code === '58835') throw new HttpError(403, 'Approved hotel room types, accessibility codes and floors require a separately reviewed inventory change');
+      }
       const updated = await tx.room.updateMany({
         where: { id: roomId, propertyId: auth(req).propertyId, version },
         data: { ...data, version: { increment: 1 } },
@@ -345,6 +362,24 @@ router.get("/housekeeping", async (req, res) => {
       },
       include: { room: true, assignedTo: { select: userSelect } },
       orderBy: [{ room: { floor: "asc" } }, { room: { number: "asc" } }],
+    }),
+  );
+});
+router.get("/housekeeping/overdue", async (req, res) => {
+  const before = date.parse(req.query.before);
+  res.json(
+    await prisma.cleaningTask.findMany({
+      where: {
+        propertyId: auth(req).propertyId,
+        scheduledFor: { lt: before },
+        status: { in: ["PENDING", "IN_PROGRESS", "COMPLETED"] },
+        ...(!manager(req) && !auth(req).roles.includes("FRONT_DESK")
+          ? { assignedToId: auth(req).userId }
+          : {}),
+      },
+      include: { room: true, assignedTo: { select: userSelect } },
+      orderBy: [{ scheduledFor: "asc" }, { room: { floor: "asc" } }, { room: { number: "asc" } }],
+      take: 500,
     }),
   );
 });
@@ -459,6 +494,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
       assignedToId: id.nullable().optional(),
       status: z.enum(statuses).optional(),
       instructions: z.string().max(2000).optional(),
+      reworkReason: z.string().trim().min(1).max(1000).optional(),
     })
     .strict()
     .parse(req.body);
@@ -486,11 +522,18 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         "HOUSEKEEPING",
       ]);
       const taskRoom = await room(tx, auth(req).propertyId, task.roomId);
+      const reassigned=data.assignedToId!==undefined && data.assignedToId!==task.assignedToId && task.status==='IN_PROGRESS';
+      if(reassigned && data.status!==undefined)throw new HttpError(400,'Reassign separately from changing task status');
+      if(reassigned && !['MAINTENANCE','OUT_OF_ORDER'].includes(taskRoom.status))await roomState(tx,req,task.roomId,'DIRTY');
+      const rework = task.status === "COMPLETED" && data.status === "IN_PROGRESS";
+      if (data.reworkReason !== undefined && !rework) throw new HttpError(400, "Rework reason requires a completed inspection");
+      if (rework && !supervisor) throw new HttpError(403, "Supervisor required");
+      if (rework && !data.reworkReason) throw new HttpError(400, "Inspection rework reason required");
       if (data.status) {
         const allowed: Record<string, string[]> = {
           PENDING: ["IN_PROGRESS", "CANCELLED"],
           IN_PROGRESS: ["COMPLETED", "CANCELLED"],
-          COMPLETED: ["VERIFIED"],
+          COMPLETED: ["VERIFIED", "IN_PROGRESS"],
           VERIFIED: [],
           CANCELLED: [],
         };
@@ -512,11 +555,15 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
         if (data.status === "CANCELLED" && task.status === "IN_PROGRESS")
           await roomState(tx, req, task.roomId, "DIRTY");
       }
+      const { reworkReason, ...changes } = data;
       const updated = await tx.cleaningTask.update({
         where: { id: taskId },
         data: {
-          ...data,
-          ...(data.status === "IN_PROGRESS" ? { startedAt: new Date() } : {}),
+          ...changes,
+          ...(reassigned?{status:'PENDING',startedAt:null,completedAt:null,verifiedAt:null,verifiedById:null}:{}),
+          ...(data.status === "IN_PROGRESS" ? { startedAt: task.startedAt ?? new Date() } : {}),
+          ...(rework ? { completedAt: null, verifiedAt: null, verifiedById: null,
+            instructions: [task.instructions, `Inspection rework: ${reworkReason}`].filter(Boolean).join('\n').slice(-2000) } : {}),
           ...(data.status === "COMPLETED" ? { completedAt: new Date() } : {}),
           ...(data.status === "VERIFIED"
             ? { verifiedAt: new Date(), verifiedById: auth(req).userId }
@@ -540,6 +587,7 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
           `Room ${taskRoom.number} was marked cleaned and needs inspection.`,
           taskId,
         );
+      if (rework) await notifyUsers(tx, auth(req).propertyId, [task.assignedToId], "ROOM_INSPECTION", "Room needs another cleaning pass", `Room ${taskRoom.number} was returned after inspection. Review the room instructions.`, taskId);
       if (data.assignedToId !== undefined && data.assignedToId !== task.assignedToId && data.assignedToId)
         await notifyUsers(tx, auth(req).propertyId, [data.assignedToId], "TASK_ASSIGNED", "Cleaning assignment", "A cleaning task was assigned to you.", taskId);
       return updated;
@@ -547,6 +595,26 @@ router.patch("/housekeeping/:taskId", async (req, res) => {
   );
 });
 
+
+router.get("/maintenance/report-context", requireRole("HOUSEKEEPING","MAINTENANCE","FRONT_DESK","ADMIN","MANAGER"),async(req,res)=>{
+  const [rooms,areas]=await Promise.all([
+    prisma.room.findMany({where:{propertyId:auth(req).propertyId,isActive:true},
+      select:{id:true,number:true,floor:true},orderBy:[{floor:'asc'},{number:'asc'}]}),
+    prisma.publicArea.findMany({where:{propertyId:auth(req).propertyId,isActive:true},
+      select:{id:true,name:true,location:true},orderBy:[{sortOrder:'asc'},{name:'asc'}]})
+  ]);
+  res.json({rooms,areas});
+});
+router.get("/maintenance/my-reports", requireRole("HOUSEKEEPING","MAINTENANCE","FRONT_DESK","ADMIN","MANAGER"),async(req,res)=>{
+  const tickets=await prisma.maintenanceTicket.findMany({
+    where:{propertyId:auth(req).propertyId,reportedById:auth(req).userId},
+    select:{id:true,title:true,description:true,priority:true,status:true,createdAt:true,updatedAt:true,
+      resolution:true,room:{select:{number:true}},publicArea:{select:{name:true,location:true}},
+      assignedTo:{select:{name:true}}},
+    orderBy:{createdAt:'desc'},take:100
+  });
+  res.json(tickets);
+});
 router.get("/maintenance", async (req, res) => {
   const where: Prisma.MaintenanceTicketWhereInput = {
     propertyId: auth(req).propertyId,
@@ -561,7 +629,9 @@ router.get("/maintenance", async (req, res) => {
       where,
       include: {
         room: true,
+        publicArea: { select: { id: true, name: true, location: true } },
         assignedTo: { select: userSelect },
+        reportedBy: { select: { id:true,name:true } },
         events: { orderBy: { createdAt: "asc" }, take: 100 },
       },
       orderBy: { createdAt: "desc" },
@@ -575,11 +645,13 @@ router.post("/maintenance", async (req, res) => {
       title: z.string().trim().min(1).max(200),
       description: text,
       roomId: id.nullable().optional(),
+      publicAreaId: id.nullable().optional(),
       assignedToId: id.nullable().optional(),
       priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).default("MEDIUM"),
     })
     .strict()
     .parse(req.body);
+  if(data.roomId && data.publicAreaId)throw new HttpError(400,"Choose a room or public area, not both");
   if (
     data.assignedToId &&
     !manager(req) &&
@@ -589,6 +661,10 @@ router.post("/maintenance", async (req, res) => {
   res.status(201).json(
     await prisma.$transaction(async (tx) => {
       if (data.roomId) await room(tx, auth(req).propertyId, data.roomId);
+      if (data.publicAreaId) {
+        const area=await tx.publicArea.findFirst({where:{id:data.publicAreaId,propertyId:auth(req).propertyId,isActive:true}});
+        if(!area)throw new HttpError(404,"Public area not found");
+      }
       await member(tx, auth(req).propertyId, data.assignedToId, [
         "MAINTENANCE",
       ]);
@@ -859,7 +935,55 @@ router.post(
   },
 );
 
-router.get("/dashboard", async (req, res) => {
+
+/** Property-scoped live board: summary only, no guest information. */
+router.get("/housekeeping/live-progress", frontDesk, async (req,res)=>{
+  const propertyId=auth(req).propertyId;
+  const day=businessDate(req);
+  const [tasks,rooms]=await prisma.$transaction([
+    prisma.cleaningTask.findMany({
+      where:{propertyId,scheduledFor:day},
+      select:{
+        id:true,status:true,cleaningType:true,assignedToId:true,updatedAt:true,
+        startedAt:true,completedAt:true,room:{select:{number:true}},
+        assignedTo:{select:{id:true,name:true}}
+      },orderBy:[{room:{number:'asc'}},{createdAt:'asc'}],take:500
+    }),
+    prisma.room.groupBy({by:['status'],orderBy:{status:'asc'},where:{propertyId,isActive:true},_count:true})
+  ]);
+  const statuses=['PENDING','IN_PROGRESS','COMPLETED','VERIFIED','CANCELLED'] as const;
+  const counts=Object.fromEntries(statuses.map(s=>[s,tasks.filter(t=>t.status===s).length]));
+  const eligible=tasks.filter(t=>t.status!=='CANCELLED');
+  const done=eligible.filter(t=>t.status==='COMPLETED'||t.status==='VERIFIED').length;
+  const employees=new Map<string,{id:string;name:string;assigned:number;pending:number;inProgress:number;awaitingInspection:number;verified:number;done:number}>();
+  let unassigned=0;
+  for(const task of tasks){
+    if(task.status==='CANCELLED')continue;
+    if(!task.assignedToId || !task.assignedTo){unassigned++;continue;}
+    const e=employees.get(task.assignedToId)??{id:task.assignedToId,name:task.assignedTo.name,
+      assigned:0,pending:0,inProgress:0,awaitingInspection:0,verified:0,done:0};
+    e.assigned++;
+    if(task.status==='PENDING')e.pending++;
+    if(task.status==='IN_PROGRESS')e.inProgress++;
+    if(task.status==='COMPLETED')e.awaitingInspection++;
+    if(task.status==='VERIFIED')e.verified++;
+    if(['COMPLETED','VERIFIED'].includes(task.status))e.done++;
+    employees.set(e.id,e);
+  }
+  res.set('Cache-Control','private, no-store');
+  res.json({
+    date:day.toISOString().slice(0,10),updatedAt:new Date().toISOString(),
+    total:eligible.length,done,pending:counts.PENDING,inProgress:counts.IN_PROGRESS,
+    awaitingInspection:counts.COMPLETED,verified:counts.VERIFIED,cancelled:counts.CANCELLED,
+    unassigned,percent:eligible.length?Math.round(done*100/eligible.length):0,
+    roomStatusCounts:Object.fromEntries(rooms.map(r=>[r.status,r._count])),
+    employees:[...employees.values()].sort((a,b)=>a.name.localeCompare(b.name)),
+    recent:tasks.filter(t=>t.status==='COMPLETED'||t.status==='VERIFIED')
+      .sort((a,b)=>b.updatedAt.getTime()-a.updatedAt.getTime()).slice(0,8)
+      .map(t=>({id:t.id,room:t.room.number,status:t.status,at:t.updatedAt.toISOString()}))
+  });
+});
+router.get("/dashboard", frontDesk, async (req, res) => {
   const propertyId = auth(req).propertyId;
   const day = businessDate(req);
   const [rooms, cleaning, tickets, frontDeskTasks, handovers, overdueCleaning, overdueFrontDesk, overdueMaintenance] =

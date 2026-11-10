@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {reportFailure,mockEmailProvider} from './alerts.mjs';
+test('mock mail reports failure without sensitive fields',async()=>{const r=await reportFailure({event:'upload failed',runId:'abc-123-secret?password=x',provider:mockEmailProvider});assert(r.mock);assert.equal(mockEmailProvider.messages.length,1);assert(!JSON.stringify(mockEmailProvider.messages).includes('password'))});

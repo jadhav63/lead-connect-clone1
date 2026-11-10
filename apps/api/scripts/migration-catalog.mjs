@@ -6,16 +6,23 @@ export function expectedMigrationCatalog(sql) {
     if (m[1]) foreignKeys.add(m[1]);
     else foreignKeys.delete(m[2]);
   }
+  // Track enum extensions from subsequent, reviewed migrations.
+  const enums = [...sql.matchAll(/CREATE TYPE "([^"]+)" AS ENUM \(([^;]+)\);/g)]
+    .map(m => ({name:m[1],values:[...m[2].matchAll(/'([^']+)'/g)].map(v=>v[1])}))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  for (const m of sql.matchAll(/ALTER TYPE "([^"]+)" ADD VALUE(?: IF NOT EXISTS)? '([^']+)'/g)){
+    const found=enums.find(e=>e.name===m[1]);
+    if(!found)throw Error('Enum extension lacks base type');
+    if(!found.values.includes(m[2]))found.values.push(m[2]);
+  }
   return {
     tables: names(/CREATE TABLE "([^"]+)"/g).sort(),
     indexes: [...names(/CREATE (?:UNIQUE )?INDEX "([^"]+)"/g), ...names(/CONSTRAINT "([^"]+)" PRIMARY KEY/g)].sort(),
     foreignKeys: [...foreignKeys].sort(),
-    enums: [...sql.matchAll(/CREATE TYPE "([^"]+)" AS ENUM \(([^;]+)\);/g)]
-      .map((m) => ({ name: m[1], values: [...m[2].matchAll(/'([^']+)'/g)].map((v) => v[1]) }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    enums,
   };
 }
-export function assertRenderTestSession(session, transport, endpointHost) {
+export function assertRenderTestSession(session, transport, endpointHost, approvedEndpointHost) {
   const validClientTls = transport?.encrypted === true
     && transport?.authorized === true
     && transport?.authorizationError == null;
@@ -23,14 +30,14 @@ export function assertRenderTestSession(session, transport, endpointHost) {
     || (session?.tls === false && session.ssl_setting === "off");
   // Neon can terminate client TLS at its connection proxy. In that topology,
   // pg_stat_ssl describes the proxy-to-Postgres socket (false) rather than the
-  // Node-to-Neon TLS socket. Accept that observation only for the exact,
-  // independently allowlisted render-test endpoint and only when the actual
-  // Node TLS socket reports encryption plus successful certificate validation.
+  // Node-to-Neon TLS socket. Accept that observation only when the actual Node
+  // TLS socket is verified and the endpoint matches the independently supplied
+  // expected host.
   if (session?.database !== "leadconnect"
       || session?.schema !== "public"
       || !validClientTls
       || !validBackendObservation
-      || (session.tls === false && endpointHost !== "ep-old-truth-aror3gey.c-4.us-west-2.aws.neon.tech")) {
+      || (session.tls === false && (!approvedEndpointHost || endpointHost !== approvedEndpointHost))) {
     throw new Error("Unexpected database, schema, or verified TLS transport; refusing migration");
   }
 }

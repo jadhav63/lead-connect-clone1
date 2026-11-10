@@ -1,0 +1,430 @@
+{
+  "propertyCode": "58835",
+  "propertyName": "Tombstone Grand Hotel",
+  "verifiedBy": "",
+  "verifiedAt": "",
+  "source": "Tombstone Grand Hotel - Guest Room Inventory & Missing Items Tracker; Room Inventory sheet; last modified 2026-08-17; room identifiers only",
+  "approvalReference": "",
+  "rooms": [
+    {
+      "number": "100",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "101",
+      "floor": 1,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "102",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "103",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "104",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "105",
+      "floor": 1,
+      "roomType": "AC3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "106",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "107",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "108",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "109",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "110",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "111",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "116",
+      "floor": 1,
+      "roomType": "AC1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "118",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "119",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "120",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "121",
+      "floor": 1,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "122",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "123",
+      "floor": 1,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "125",
+      "floor": 1,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "127",
+      "floor": 1,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "129",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "131",
+      "floor": 1,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "133",
+      "floor": 1,
+      "roomType": "AC2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "135",
+      "floor": 1,
+      "roomType": "AC2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "137",
+      "floor": 1,
+      "roomType": "RM1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "200",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "201",
+      "floor": 2,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "202",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "203",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "204",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "205",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "206",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "207",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "208",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "209",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "210",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "211",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "212",
+      "floor": 2,
+      "roomType": "SU1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "214",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "215",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "216",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "217",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "218",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "219",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "221",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "222",
+      "floor": 2,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "223",
+      "floor": 2,
+      "roomType": "RM1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "224",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "225",
+      "floor": 2,
+      "roomType": "RM1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "226",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "227",
+      "floor": 2,
+      "roomType": "RM1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "228",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "229",
+      "floor": 2,
+      "roomType": "RM1",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "230",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "231",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "233",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "235",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "237",
+      "floor": 2,
+      "roomType": "RM2",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    },
+    {
+      "number": "239",
+      "floor": 2,
+      "roomType": "RM3",
+      "serviceStatus": "UNVERIFIED",
+      "reason": ""
+    }
+  ]
+}

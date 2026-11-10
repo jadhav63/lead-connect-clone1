@@ -25,6 +25,7 @@ export type Task = {
   status: string;
   scheduledFor: string;
   completedAt: string | null;
+  instructions?: string | null;
 };
 export const roomStatuses = [
   "CLEAN",
@@ -33,8 +34,9 @@ export const roomStatuses = [
   "INSPECTION",
   "MAINTENANCE",
   "OUT_OF_ORDER",
+  "UNKNOWN",
 ];
-export const occupancyStatuses = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE"];
+export const occupancyStatuses = ["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE", "UNKNOWN"];
 export const cleaningTypes = [
   "CHECKOUT",
   "STAYOVER",

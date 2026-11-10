@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { api, login, logout } from "./api";
+import { api, login, logout, forgetSession } from "./api";
 import { parseRoomCSV } from "./csv";
+import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
+import { PublicAreas, PublicAreaReport } from "./PublicAreas";
+import { PropertyOnboarding } from "./PropertyOnboarding";
+import { HousekeepingRulesManager } from "./HousekeepingRulesManager";
+import { SynxisHousekeepingPanel } from "./SynxisHousekeepingPanel";
+import { LiveHousekeepingProgress } from "./LiveHousekeepingProgress";
+import {MyWorkToday} from './MyWorkToday';
+import {EmployeeRecovery} from './EmployeeRecovery';
+import {EmployeeAccessPanel} from './EmployeeAccessPanel';
+import {LanguageProvider,LanguageSelect,useLanguage,rememberedHotel,rememberHotel} from './mobile-language';
 import {
   type Employee,
   type Room,
@@ -70,20 +80,33 @@ export function RoomCard({
   room,
   editable,
   onSave,
+  inventoryLocked = false,
 }: {
   room: Room;
   editable: boolean;
   onSave: (data: unknown) => Promise<boolean>;
+  inventoryLocked?: boolean;
 }) {
   const [status, setStatus] = useState(room.status),
     [occupancy, setOccupancy] = useState(room.occupancyStatus),
     [notes, setNotes] = useState(room.notes ?? ""),
+    [roomType, setRoomType] = useState(room.roomType ?? ""),
+    [floor, setFloor] = useState(room.floor),
     [saving, setSaving] = useState(false),
     [saved, setSaved] = useState(false);
+  useEffect(() => {
+    setStatus(room.status);
+    setOccupancy(room.occupancyStatus);
+    setNotes(room.notes ?? "");
+    setRoomType(room.roomType ?? "");
+    setFloor(room.floor);
+  }, [room.version]);
   const changed =
     status !== room.status ||
     occupancy !== room.occupancyStatus ||
-    notes !== (room.notes ?? "");
+    notes !== (room.notes ?? "") ||
+    roomType !== (room.roomType ?? "") ||
+    floor !== room.floor;
   async function save() {
     setSaving(true);
     try {
@@ -93,6 +116,8 @@ export function RoomCard({
           status,
           occupancyStatus: occupancy,
           notes: notes || null,
+          roomType: roomType || null,
+          floor,
         })
       )
         setSaved(true);
@@ -140,6 +165,10 @@ export function RoomCard({
               }}
             />
           </div>
+          <div className="two">
+            <label className="control"><span>Room type</span><input aria-label={"Room " + room.number + " type"} value={roomType} disabled={saving || inventoryLocked} onChange={e=>{setRoomType(e.target.value);setSaved(false);}} /></label>
+            <label className="control"><span>Floor</span><input aria-label={"Room " + room.number + " floor"} type="number" min="1" max="2" value={floor} disabled={saving || inventoryLocked} onChange={e=>{setFloor(Number(e.target.value));setSaved(false);}} /></label>
+          </div>
           <label className="control">
             <span>Room notes</span>
             <textarea
@@ -174,6 +203,7 @@ function FormPanel({
   submit,
   onSubmit,
   busy,
+  open = false,
   children,
 }: {
   title: string;
@@ -181,6 +211,7 @@ function FormPanel({
   submit: string;
   onSubmit: (body: Record<string, unknown>) => Promise<boolean>;
   busy: boolean;
+  open?: boolean;
   children?: ReactNode;
 }) {
   async function send(e: FormEvent<HTMLFormElement>) {
@@ -196,7 +227,7 @@ function FormPanel({
     if (await onSubmit(body)) form.reset();
   }
   return (
-    <details className="panel form-panel">
+    <details className="panel form-panel" open={open}>
       <summary>{title}</summary>
       <form onSubmit={send}>
         <div className="form-grid">
@@ -209,6 +240,7 @@ function FormPanel({
               {f.options ? (
                 <select
                   name={f.name}
+                  aria-label={f.label}
                   defaultValue={f.value ?? ""}
                   required={f.required}
                 >
@@ -222,6 +254,7 @@ function FormPanel({
               ) : f.type === "textarea" ? (
                 <textarea
                   name={f.name}
+                  aria-label={f.label}
                   required={f.required}
                   maxLength={2000}
                   defaultValue={f.value}
@@ -229,6 +262,7 @@ function FormPanel({
               ) : (
                 <input
                   name={f.name}
+                  aria-label={f.label}
                   type={f.type ?? "text"}
                   required={f.required}
                   defaultValue={f.value}
@@ -260,12 +294,17 @@ function AssignmentRow({
   busy: boolean;
 }) {
   const [assigned, setAssigned] = useState(task.assignedToId ?? "");
+  const [reworkReason, setReworkReason] = useState("");
   const [saved, setSaved] = useState(false);
   const terminal = ["COMPLETED", "VERIFIED", "CANCELLED"].includes(task.status);
   return (
     <tr>
       <th scope="row">{task.room.number}</th>
-      <td>{label(task.cleaningType)}</td>
+      <td>{label(task.cleaningType)}
+        <small>Scheduled {task.scheduledFor?.slice(0, 10) ?? "date unavailable"}</small>
+        {task.instructions && <small className="preserve-lines">{task.instructions}</small>}
+        {task.room.notes && <small className="preserve-lines">Room note: {task.room.notes}</small>}
+      </td>
       <td>
         {canAssign && <span className="print-only">{task.assignedTo?.name ?? "Unassigned"}</span>}
         {canAssign ? (
@@ -347,6 +386,13 @@ function AssignmentRow({
               Verify clean
             </button>
           )}
+          {task.status === "COMPLETED" && canAssign && <form className="screen-only" onSubmit={async e => {
+            e.preventDefault();
+            await run("/housekeeping/" + task.id, "PATCH", { status: "IN_PROGRESS", reworkReason });
+          }}>
+            <label className="control">Inspection rework for room {task.room.number}<input value={reworkReason} onChange={e => setReworkReason(e.target.value)} required maxLength={1000} /></label>
+            <button className="secondary" disabled={busy || !reworkReason.trim()}>Return for cleaning</button>
+          </form>}
           {canAssign && ["PENDING", "IN_PROGRESS"].includes(task.status) && (
             <button
               disabled={busy}
@@ -365,7 +411,9 @@ function AssignmentRow({
     </tr>
   );
 }
-export default function App() {
+export default function App(){return <LanguageProvider><HotelApp/></LanguageProvider>;}
+function HotelApp() {
+  const {t,language}=useLanguage();
   const [identity, setIdentity] = useState<Identity | null>(null),
     [checking, setChecking] = useState(true),
     [page, setPage] = useState("Dashboard"),
@@ -375,6 +423,7 @@ export default function App() {
     [data, setData] = useState<any>({}),
     [rooms, setRooms] = useState<Room[]>([]),
     [employees, setEmployees] = useState<Employee[]>([]),
+    [overdueTasks, setOverdueTasks] = useState<Task[]>([]),
     [property, setProperty] = useState<any>(null),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(false),
@@ -391,10 +440,13 @@ export default function App() {
   const desk = manager || (identity?.roles.includes("FRONT_DESK") ?? false);
   useEffect(() => {
     api<Identity>("/auth/me")
-      .then(setIdentity)
+      .then(value=>{setIdentity(value);const roles=value.roles;
+        if(!roles.some(r=>['ADMIN','MANAGER','FRONT_DESK'].includes(r)))setPage(roles.includes('HOUSEKEEPING')?'My Work Today':'Maintenance');
+      })
       .catch(() => {})
       .finally(() => setChecking(false));
   }, []);
+  useEffect(()=>{const ended=()=>{setIdentity(null);setRooms([]);setData({});setProperty(null);setPage('Dashboard');};window.addEventListener('lead-connect-session-ended',ended);return()=>window.removeEventListener('lead-connect-session-ended',ended);},[]);
   const loadSequence = useRef(0);
   const activeView = useRef({ identity, page, day, reportPeriod, reportMonth });
   activeView.current = { identity, page, day, reportPeriod, reportMonth };
@@ -414,20 +466,22 @@ export default function App() {
         Activity: "/audit",
         Reports: reportPeriod === "MONTH" ? "/reports?month=" + reportMonth : "/reports?date=" + day,
       };
-      const [rs, ps, people, pageData] = await Promise.all([
-        api<Room[]>("/rooms"),
+      const [rs, ps, people, pageData, overdue] = await Promise.all([
+        page==='My Work Today'?Promise.resolve([]):api<Room[]>("/rooms"),
         api("/properties/current"),
         desk ? api<Employee[]>("/employees") : Promise.resolve([]),
         page === "Front Desk"
           ? Promise.all([api("/front-desk/tasks?date=" + day), api("/front-desk/handovers?date=" + day)])
               .then(([tasks, handovers]) => ({ tasks, handovers }))
           : route[page] ? api(route[page]) : Promise.resolve({}),
+        page === "Housekeeping" ? api<Task[]>("/housekeeping/overdue?before=" + day) : Promise.resolve([]),
       ]);
       if (!current()) return;
       setRooms(rs);
       setProperty(ps);
       setEmployees(people);
       setData(pageData);
+      setOverdueTasks(overdue);
     } catch (e) {
       if (current()) setError((e as Error).message);
     } finally {
@@ -436,6 +490,7 @@ export default function App() {
   }
   useEffect(() => {
     setData({});
+    setOverdueTasks([]);
     setError("");
     void load();
     return () => { ++loadSequence.current; };
@@ -445,7 +500,14 @@ export default function App() {
     setError("");
     setSuccess("");
     try {
-      await api(path, method, body);
+      const result = await api<any>(path, method, body);
+      if (page === "Maintenance" && method === "PATCH" && path.startsWith("/maintenance/") && result?.id) {
+        setData((current: any) => Array.isArray(current)
+          ? current.filter((ticket: any) => ticket && typeof ticket.id === "string").map((ticket: any) => ticket.id === result.id ? { ...ticket, ...result } : ticket)
+          : current);
+        setSuccess("Saved successfully");
+        return true;
+      }
       setSuccess("Saved successfully");
       await load();
       return true;
@@ -467,9 +529,11 @@ export default function App() {
         String(fields.get("password")),
         String(fields.get("propertyCode")),
       );
-      setIdentity(await api<Identity>("/auth/me"));
+      const value=await api<Identity>("/auth/me");setIdentity(value);
+      rememberHotel(String(fields.get('propertyCode')));
+      setPage(value.roles.some(r=>['ADMIN','MANAGER','FRONT_DESK'].includes(r))?'Dashboard':value.roles.includes('HOUSEKEEPING')?'My Work Today':'Maintenance');
     } catch (e) {
-      setError((e as Error).message);
+      setError(language==='es'?t('Sign-in failed. Check your hotel, email and password, or contact your manager.'):(e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -477,7 +541,7 @@ export default function App() {
   if (checking)
     return (
       <main className="loading" role="status">
-        Connecting to Lead Connect…
+        {t('Connecting to Lead Connect…')}
       </main>
     );
   if (!identity)
@@ -486,22 +550,23 @@ export default function App() {
         <div className="login-brand">
           <span className="brand-mark">LC</span>
           <h1>Lead Connect</h1>
-          <p>Hotel operations, connected.</p>
-          <span className="test-label">Separate test project</span>
+          <p>{t('Hotel operations, connected.')}</p>
+          <LanguageSelect/>
+          <span className="test-label">{import.meta.env.VITE_APP_ENV === "production" ? "Hotel staff access" : "Separate test project"}</span>
         </div>
         <form onSubmit={signIn} className="login-form">
-          <h2>Sign in to your property</h2>
-          <p className="muted">Use an account created by your administrator.</p>
+          <h2>{t('Sign in to your property')}</h2>
+          <p className="muted">{t('Use your individual employee account.')}</p>
           <label className="control">
-            Property code
-            <input name="propertyCode" autoComplete="organization" required />
+            {t('Property code')}
+            <input name="propertyCode" autoComplete="organization" required maxLength={64} defaultValue={rememberedHotel()}/>
           </label>
           <label className="control">
-            Email
+            {t('Email')}
             <input name="email" type="email" autoComplete="username" required />
           </label>
           <label className="control">
-            Password
+            {t('Password')}
             <input
               name="password"
               type="password"
@@ -515,20 +580,24 @@ export default function App() {
               {error}
             </p>
           )}
-          <button disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
-          <small>No public registration. No live hotel data.</small>
+          {success && <p role="status" className="success">{success}</p>}
+          <button disabled={busy}>{t(busy ? "Signing in…" : "Sign in")}</button>
+          <small>{t('Hotel remembered on this device. No password is stored here.')}</small>
+          <small>{import.meta.env.VITE_APP_ENV === "production" ? "Authorized hotel employees only." : "No public registration. No live hotel data."}</small>
         </form>
+        <EmployeeRecovery/>
       </main>
     );
-  const nav = [
-    "Dashboard",
-    "Rooms",
-    "Housekeeping",
-    "Maintenance",
-    "Notifications",
-    ...(desk ? ["Front Desk", "Employees"] : []),
-    ...(manager ? ["Reports", "Activity", "Settings"] : []),
-  ];
+  // Navigation is a convenience only; API endpoints independently enforce roles.
+  const staffOnly = !desk;
+  const nav = staffOnly
+    ? [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today','Housekeeping','Public Areas']:[]),
+       ...(identity.roles.includes('MAINTENANCE')?['Maintenance']:[]),
+       'Notifications','Account']
+    : [...(identity.roles.includes('HOUSEKEEPING')?['My Work Today']:[]),
+       'Dashboard','Rooms','Housekeeping','Public Areas','Maintenance','Notifications',
+       ...(desk?['Front Desk','Employees']:[]),...(manager?['Reports','Activity','Settings']:[]),
+       'Account'];
   const filtered = rooms.filter(
     (r) =>
       (r.number.includes(search) ||
@@ -538,6 +607,9 @@ export default function App() {
   const notifications = Array.isArray(data) ? data : [];
   const activityEntries = Array.isArray(data) ? data : [];
   const visibleActivity = activityEntries.filter((entry: any) => `${entry.actor?.name ?? "System"} ${entry.action ?? "UPDATE"} ${entry.entityType ?? "Record"}`.toLowerCase().includes(activitySearch.toLowerCase()));
+  const todayCleaningTasks: Task[] = page === "Housekeeping" && Array.isArray(data) ? data : [];
+  const activeTaskByRoom = new Map(todayCleaningTasks.filter(task => task.room?.id && ["PENDING", "IN_PROGRESS"].includes(task.status)).map(task => [task.room.id, task] as const));
+  const dirtyCheckoutStayoverRooms = rooms.filter(room => room.status === "DIRTY" && ["DEPARTURE", "OCCUPIED"].includes(room.occupancyStatus));
   return (
     <div className="shell">
       <a className="skip-link" href="#workspace">Skip to workspace</a>
@@ -548,7 +620,7 @@ export default function App() {
             Lead Connect<small>Hotel operations</small>
           </div>
         </div>
-        <span className="test-label">TEST ENVIRONMENT</span>
+        <span className="test-label">{import.meta.env.VITE_APP_ENV === "production" ? "STAFF OPERATIONS" : "TEST ENVIRONMENT"}</span>
         <nav aria-label="Main navigation">
           {nav.map((n) => (
             <button
@@ -556,15 +628,18 @@ export default function App() {
               className={page === n ? "nav active" : "nav"}
               aria-current={page === n ? "page" : undefined}
               onClick={() => {
-                setPage(n);
                 setSuccess("");
+                if (page === n) { void load(); return; }
+                setData({});
+                setPage(n);
               }}
             >
-              {n}
+              {t(n)}
             </button>
           ))}
         </nav>
         <div className="profile">
+          <LanguageSelect/>
           <strong>{identity.user.name}</strong>
           <small>{identity.roles.map(label).join(" · ")}</small>
           <button
@@ -572,12 +647,15 @@ export default function App() {
             onClick={async () => {
               try {
                 await logout();
-              } catch {}
+              } catch {
+                setError("Sign out could not be confirmed. Reconnect and try Sign out again.");
+                return;
+              }
               setIdentity(null);
               setPage("Dashboard");
             }}
           >
-            Sign out
+            {t('Sign out')}
           </button>
         </div>
       </aside>
@@ -585,9 +663,9 @@ export default function App() {
         <header className="topbar">
           <div>
             <small>{property?.name ?? "Your property"}</small>
-            <h1>{page}</h1>
+              <h1>{t(page)}</h1>
           </div>
-          <div className="top-actions">
+          {page!=='My Work Today'&&<div className="top-actions">
             <label className="control">
               <span>Business date · Arizona</span>
               <input
@@ -604,7 +682,7 @@ export default function App() {
             >
               Refresh
             </button>
-          </div>
+          </div>}
         </header>
         <p className="print-only">{property?.name ?? "Your property"} · {page} · {page === "Reports" && reportPeriod === "MONTH" ? reportMonth : day} (Arizona)</p>
         {success && (
@@ -621,7 +699,31 @@ export default function App() {
           </div>
         )}
         {loading && <p role="status" className="loading-message">Loading {page.toLowerCase()}…</p>}
-        <div hidden={loading || !!error}>
+        <div hidden={loading || (!!error && page !== "Account")}>
+        {page === "Account" && (
+          <form className="panel" onSubmit={async event => {
+            event.preventDefault();
+            const fields = new FormData(event.currentTarget);
+            const newPassword = String(fields.get("newPassword"));
+            if (newPassword !== String(fields.get("confirmation"))) { setError("The new passwords do not match."); return; }
+            setBusy(true);
+            try {
+              await api("/auth/password", "POST", { currentPassword: String(fields.get("currentPassword")), newPassword });
+              forgetSession();
+              setIdentity(null);
+              setPage("Dashboard");
+              setSuccess("Password changed. Sign in with your new password.");
+            } catch (e) { setError((e as Error).message); }
+            finally { setBusy(false); }
+          }}>
+            <h2>Change your password</h2>
+            <p>Use your own password. Changing it immediately invalidates existing account sessions.</p>
+            <label className="control">Current password<input name="currentPassword" type="password" autoComplete="current-password" required maxLength={128} /></label>
+            <label className="control">New password<input name="newPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+            <label className="control">Confirm new password<input name="confirmation" type="password" autoComplete="new-password" required minLength={12} maxLength={128} /></label>
+            <button disabled={busy}>{busy ? "Changing password…" : "Change password"}</button>
+          </form>
+        )}
         {page === "Dashboard" && (
           <>
             <p className="section-intro">Your daily operating picture.</p>
@@ -652,6 +754,7 @@ export default function App() {
                 </article>
               ))}
             </div>
+            <LiveHousekeepingProgress date={day}/>
             <div className="two">
               <section className="panel">
                 <h2>Room readiness</h2>
@@ -701,8 +804,13 @@ export default function App() {
             </div>
           </>
         )}
+        {page === "Public Areas" && <PublicAreas key={identity.user.id} day={day} manager={manager} userId={identity.user.id} />}
+        {page === 'My Work Today' && <MyWorkToday/>}
+        {page === "Settings" && manager && <><PropertyOnboarding /><HousekeepingRulesManager /></>}
+        {page === "Reports" && <><PublicAreaReport day={day} /><h2>Guest-room cleaning report</h2></>}
         {page === "Rooms" && (
           <>
+            {manager && property?.code === "58835" && <RoomInventoryPreview />}
             <div className="toolbar">
               <label className="control">
                 <span>Search rooms</span>
@@ -728,7 +836,7 @@ export default function App() {
                 Vacant
               </span>
             </div>
-            {desk && (
+            {desk && property?.code !== '58835' && (
               <FormPanel
                 title="Add room"
                 fields={[
@@ -751,9 +859,10 @@ export default function App() {
             <div className="room-grid">
               {filtered.map((room) => (
                 <RoomCard
-                  key={room.id + "-" + room.version}
+                  key={room.id}
                   room={room}
                   editable={desk}
+                  inventoryLocked={property?.code === '58835'}
                   onSave={(b) => run("/rooms/" + room.id, "PATCH", b)}
                 />
               ))}
@@ -768,6 +877,17 @@ export default function App() {
         )}
         {page === "Housekeeping" && (
           <>
+            {manager && <SynxisHousekeepingPanel date={day} onApplied={()=>{void load();}} />}
+            {desk && <section className="panel" aria-labelledby="assignment-queue-title">
+              <h2 id="assignment-queue-title">Dirty checkout and stayover queue · {day}</h2>
+              {!dirtyCheckoutStayoverRooms.length ? <p>No dirty checkout or stayover rooms are waiting.</p> : <ul className="room-queue">
+                {dirtyCheckoutStayoverRooms.map(room => {
+                  const task = activeTaskByRoom.get(room.id);
+                  const service = room.occupancyStatus === "DEPARTURE" ? "Checkout" : "Stayover";
+                  return <li key={room.id}><strong>Room {room.number}</strong><span>{service}</span><span>{task ? `${task.assignedTo?.name ?? "Unassigned"} · ${label(task.status)}` : "Not assigned"}</span></li>;
+                })}
+              </ul>}
+            </section>}
             {desk && (
               <>
                 <FormPanel
@@ -802,6 +922,7 @@ export default function App() {
                   ]}
                   submit="Save assignment"
                   busy={busy}
+                  open
                   onSubmit={(b) => run("/housekeeping", "POST", b)}
                 />
                 <details className="panel">
@@ -859,6 +980,14 @@ export default function App() {
                 </details>
               </>
             )}
+            <section className="overdue-section" aria-labelledby="overdue-housekeeping-title">
+              <h2 id="overdue-housekeeping-title">Overdue cleaning tasks · before {day}</h2>
+              <p>These tasks are from earlier business dates and remain pending, in progress, or awaiting verification.</p>
+              {!overdueTasks.length ? <p>No overdue cleaning tasks.</p> : <div className="table-wrap"><table>
+                <thead><tr>{["Room", "Service and scheduled date", "Employee", "Status", "Action"].map(x => <th key={x}>{x}</th>)}</tr></thead>
+                <tbody>{overdueTasks.map(task => <AssignmentRow key={task.id + "-overdue-" + task.status} task={task} employees={employees} canAssign={desk} run={run} busy={busy} />)}</tbody>
+              </table></div>}
+            </section>
             <div className="section-heading">
               <h2>Housekeeping board · {day}</h2>
               <button className="secondary" onClick={() => window.print()}>
@@ -943,8 +1072,9 @@ export default function App() {
                       </span>
                     </div>
                     <p>{t.description}</p>
+                    <p className="muted">Reported by {t.reportedBy?.name ?? "Staff"} · {new Date(t.createdAt).toLocaleString()}</p>
                     <p className="muted">
-                      {t.room ? "Room " + t.room.number : "Public area"} ·{" "}
+                      {t.room ? "Room " + t.room.number : t.publicArea ? "Public area · " + t.publicArea.name + " · " + t.publicArea.location : "General maintenance"} ·{" "}
                       {t.assignedTo?.name ?? "Unassigned"}
                     </p>
                     {desk && (
@@ -1004,7 +1134,7 @@ export default function App() {
                     )}
                     <details>
                       <summary>History</summary>
-                      {t.events.map((event: any) => (
+                      {(t.events ?? []).map((event: any) => (
                         <p key={event.id}>
                           {new Date(event.createdAt).toLocaleString()} ·{" "}
                           {event.toStatus ?? "Updated"} · {event.comment ?? ""}
@@ -1081,7 +1211,8 @@ export default function App() {
                     </small>
                   </div>
                   <div className="actions">
-                    {["PENDING", "IN_PROGRESS"].includes(t.status) && (
+                    {t.status === "PENDING" && (manager || !t.assignedToId || t.assignedToId === identity.user.id) && <button disabled={busy} onClick={() => run("/front-desk/tasks/" + t.id, "PATCH", { status: "IN_PROGRESS" })}>Start</button>}
+                    {["PENDING", "IN_PROGRESS"].includes(t.status) && (manager || !t.assignedToId || t.assignedToId === identity.user.id) && (
                       <button
                         disabled={busy}
                         onClick={() =>
@@ -1169,9 +1300,22 @@ export default function App() {
         )}
         {page === "Employees" && (
           <>
+            {manager && <section className="panel" aria-label="Employee role quick guide">
+              <h2>Employee roles & access</h2>
+              <p>Use the verified staff profile and <strong>Employee access management</strong> below to issue a private activation code. Employees set their own password; never share one hotel-wide login.</p>
+              <div className="hk-live-stats" aria-label="Role access overview">
+                <div className="hk-live-stat"><strong>Housekeeping</strong><span>My Work Today, report repairs, notifications, own account</span></div>
+                <div className="hk-live-stat"><strong>Maintenance</strong><span>Assigned repair tickets, maintenance updates, notifications</span></div>
+                <div className="hk-live-stat"><strong>Front Desk</strong><span>Room status, shift tasks, maintenance reporting, operations dashboard</span></div>
+                <div className="hk-live-stat"><strong>Manager</strong><span>Staff assignments, rules, reporting and oversight</span></div>
+                <div className="hk-live-stat"><strong>Administrator</strong><span>Authorized management controls and manager access approvals</span></div>
+              </div>
+            </section>}
+            {manager && <HotelStaffDirectory />}
+            {manager && <EmployeeAccessPanel administrator={identity.roles.includes('ADMIN')}/>}
             {manager && (
               <FormPanel
-                title="Create employee test account"
+                title="Create employee account"
                 fields={[
                   { name: "name", label: "Employee name", required: true },
                   {
@@ -1320,7 +1464,7 @@ export default function App() {
                   <article className="stat"><small>Estimated completed minutes</small><strong>{data.totals?.estimatedCompletedMinutes ?? 0}</strong></article>
                   <article className="stat"><small>Tracked elapsed minutes</small><strong>{data.totals?.trackedElapsedMinutes ?? 0}</strong></article>
                 </div>
-                <section className="panel">
+                <section className="panel" aria-label="Guest-room monthly report">
                   <h2>Monthly employee cleaning totals · {data.month ?? reportMonth}</h2>
                   <p>Estimates use the default service times. Tracked elapsed time runs from Start to Complete and does not subtract breaks or pauses.</p>
                   <div className="table-wrap">
@@ -1408,8 +1552,7 @@ export default function App() {
         )}
         </div>
         <footer className="workspace-footer">
-          Lead Connect · Separate hotel operations test project · No PMS
-          connection
+          {import.meta.env.VITE_APP_ENV === "production" ? "Lead Connect · Hotel staff operations · Manual PMS reconciliation" : "Lead Connect · Separate hotel operations test project · No PMS connection"}
         </footer>
       </main>
     </div>

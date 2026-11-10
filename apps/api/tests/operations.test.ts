@@ -236,6 +236,23 @@ describe("property-scoped operational workflows", () => {
       ).status,
     ).toBe(403);
   });
+  it("shows earlier unfinished cleaning in a separate property-scoped overdue query", async () => {
+    const created = await api("front").post("/housekeeping", {
+      roomId: ownRoom,
+      scheduledFor: "2026-11-05",
+      cleaningType: "STAYOVER",
+      assignedToId: people.cleaner,
+    });
+    expect(created.status).toBe(201);
+    const managerRows = await api("manager").get("/housekeeping/overdue?before=2026-11-06");
+    expect(managerRows.status).toBe(200);
+    expect(managerRows.body.map((task: { id: string }) => task.id)).toContain(created.body.id);
+    expect((await api("cleaner").get("/housekeeping/overdue?before=2026-11-06")).body.map((task: { id: string }) => task.id)).toContain(created.body.id);
+    expect((await api("otherCleaner").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
+    expect((await api("manager").get("/housekeeping/overdue?before=2026-11-05")).body).toHaveLength(0);
+    expect((await api("foreign").get("/housekeeping/overdue?before=2026-11-06")).body).toHaveLength(0);
+    await prisma.cleaningTask.delete({ where: { id: created.body.id } });
+  });
   it("moves assigned cleaning through start, completion and supervisor inspection", async () => {
     expect(
       (
@@ -344,6 +361,54 @@ describe("property-scoped operational workflows", () => {
         },
       }),
     ).rejects.toMatchObject({ code: "P2003" });
+  });
+  it("lets housekeeping report repair issues and track only their own tickets", async () => {
+    const context=await api("cleaner").get("/maintenance/report-context");
+    expect(context.status).toBe(200);
+    expect(context.body.rooms.some((r:{id:string})=>r.id===ownRoom)).toBe(true);
+    expect(context.body.rooms.some((r:{id:string})=>r.id===foreignRoom)).toBe(false);
+    const initial=await api("cleaner").get("/maintenance/my-reports");
+    expect(initial.status).toBe(200);
+    expect(initial.body).toEqual([]);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      roomId:foreignRoom,priority:"HIGH"})).status).toBe(404);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      roomId:ownRoom,publicAreaId:randomUUID(),priority:"HIGH"})).status).toBe(400);
+    expect((await api("cleaner").post("/maintenance",{title:"Leak",description:"Guest bathroom faucet leaks",
+      publicAreaId:randomUUID(),priority:"HIGH"})).status).toBe(404);
+    const created=await api("cleaner").post("/maintenance",{
+      title:"Plumbing / Water",description:"Water dripping from bathroom faucet",
+      roomId:ownRoom,priority:"HIGH"
+    });
+    expect(created.status).toBe(201);
+    expect(created.body).toMatchObject({reportedById:people.cleaner,roomId:ownRoom,priority:"HIGH",status:"OPEN",assignedToId:null});
+    const mine=await api("cleaner").get("/maintenance/my-reports");
+    expect(mine.status).toBe(200);
+    expect(mine.body).toEqual([expect.objectContaining({
+      id:created.body.id,title:"Plumbing / Water",status:"OPEN",room:{number:"101"}
+    })]);
+    expect((await api("otherCleaner").get("/maintenance/my-reports")).body).toEqual([]);
+    expect((await api("foreign").get("/maintenance/my-reports")).body).toEqual([]);
+    const manager=await api("manager").get("/maintenance");
+    expect(manager.body).toContainEqual(expect.objectContaining({
+      id:created.body.id,reportedBy:{id:people.cleaner,name:"cleaner"}
+    }));
+    expect((await api("cleaner").patch("/maintenance/"+created.body.id,{status:"CLOSED",
+      resolution:"Fixed"})).status).toBe(403);
+    expect(await prisma.notification.count({where:{entityId:created.body.id,type:"MAINTENANCE_CREATED",
+      userId:{in:[people.manager,people.front]}}})).toBeGreaterThan(0);
+    expect((await api("manager").patch("/maintenance/"+created.body.id,{
+      assignedToId:people.repair,status:"IN_PROGRESS",comment:"Repair underway"})).status).toBe(200);
+    const changed=await api("cleaner").get("/maintenance/my-reports");
+    expect(changed.body[0].status).toBe("IN_PROGRESS");
+    expect(changed.body[0].assignedTo.name).toBe("repair");
+    expect((await api("manager").patch("/maintenance/"+created.body.id,{
+      status:"CLOSED",resolution:"Faucet serviced"})).status).toBe(200);
+    const completed=await api("cleaner").get("/maintenance/my-reports");
+    expect(completed.body[0].status).toBe("CLOSED");
+    expect(completed.body[0].resolution).toBe("Faucet serviced");
+    expect(await prisma.notification.count({where:{userId:people.cleaner,entityId:created.body.id,
+      type:"MAINTENANCE_UPDATED"}})).toBeGreaterThan(0);
   });
   it("creates and assigns a maintenance ticket", async () => {
     expect(
@@ -476,6 +541,24 @@ describe("property-scoped operational workflows", () => {
       ).status,
     ).toBe(200);
   });
+  it("shows property-only live housekeeping progress and forbids staff dashboard access",async()=>{
+    const manager=await api("manager").get("/housekeeping/live-progress?date="+day);
+    expect(manager.status).toBe(200);
+    expect(manager.body.date).toBe(day);
+    expect(manager.body.unassigned).toBeGreaterThanOrEqual(0);
+    expect(manager.body.total).toBeGreaterThanOrEqual(1);
+    expect(manager.body.done).toBeGreaterThanOrEqual(1);
+    expect(manager.body.employees).toContainEqual(expect.objectContaining({id:people.cleaner,name:"cleaner"}));
+    expect(manager.body.employees.every((e:{name:string})=>e.name!=="foreign")).toBe(true);
+    const front=await api("front").get("/housekeeping/live-progress?date="+day);
+    expect(front.status).toBe(200);
+    expect((await api("cleaner").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("foreign").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("repair").get("/housekeeping/live-progress?date="+day)).status).toBe(403);
+    expect((await api("cleaner").get("/dashboard?date="+day)).status).toBe(403);
+    expect((await api("repair").get("/dashboard?date="+day)).status).toBe(403);
+    expect((await api("manager").get("/housekeeping/live-progress?date=bad")).status).toBe(400);
+  });
   it("restricts reports and keeps audit data property scoped", async () => {
     expect((await api("cleaner").get("/reports?date=" + day)).status).toBe(403);
     const report = await api("manager").get("/reports?date=" + day);
@@ -534,4 +617,18 @@ describe("property-scoped operational workflows", () => {
     ).toBe(200);
     expect((await api("otherCleaner").get("/rooms")).status).toBe(401);
   });
+});
+
+it('returns a failed inspection for rework only with a supervisor reason and preserves the original elapsed-time start', async () => {
+  const testRoom = await prisma.room.create({ data: { propertyId: properties[0], number: 'REWORK', floor: 1, status: 'INSPECTION' } });
+  const startedAt = new Date('2026-11-06T08:00:00Z');
+  const task = await prisma.cleaningTask.create({ data: { propertyId: properties[0], roomId: testRoom.id, createdById: people.manager, assignedToId: people.cleaner, cleaningType: 'CHECKOUT', scheduledFor: new Date(day), status: 'COMPLETED', startedAt, completedAt: new Date('2026-11-06T08:30:00Z') } });
+  expect((await api('cleaner').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS', reworkReason: 'Not permitted' })).status).toBe(403);
+  expect((await api('manager').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS' })).status).toBe(400);
+  const returned = await api('manager').patch('/housekeeping/'+task.id, { status: 'IN_PROGRESS', reworkReason: 'Recheck bathroom fixtures' });
+  expect(returned.status).toBe(200); expect(returned.body.completedAt).toBeNull(); expect(returned.body.startedAt).toBe(startedAt.toISOString()); expect(returned.body.instructions).toContain('Recheck bathroom fixtures');
+  expect(await prisma.notification.count({ where: { userId: people.cleaner, entityId: task.id, type: 'ROOM_INSPECTION' } })).toBe(1);
+  expect((await api('cleaner').patch('/housekeeping/'+task.id, { status: 'COMPLETED' })).status).toBe(200);
+  expect((await api('manager').patch('/housekeeping/'+task.id, { status: 'VERIFIED' })).status).toBe(200);
+  expect((await prisma.room.findUniqueOrThrow({ where: { id: testRoom.id } })).status).toBe('CLEAN');
 });

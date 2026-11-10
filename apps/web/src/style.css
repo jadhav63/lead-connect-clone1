@@ -65,7 +65,7 @@ textarea {
 small {
   font-size: 12px;
   display: block;
-  color: #6a7786;
+  color: #536477;
   line-height: 1.6;
 }
 h1 {
@@ -98,8 +98,10 @@ h3 {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
 }
 .brand {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -138,6 +140,9 @@ h3 {
   margin-top: 22px;
   display: grid;
   gap: 5px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 .nav {
   background: transparent;
@@ -156,6 +161,7 @@ h3 {
   border-left: 3px solid #9fc9e4;
 }
 .profile {
+  flex-shrink: 0;
   margin-top: auto;
   border-top: 1px solid #3b5064;
   padding-top: 20px;
@@ -199,7 +205,7 @@ h3 {
   color: #586979;
 }
 .section-intro {
-  color: #667585;
+  color: #536477;
   margin: 0 0 22px;
 }
 .stats {
@@ -244,7 +250,7 @@ h3 {
   font-weight: 600;
 }
 .muted {
-  color: #68798a;
+  color: #536477;
   font-size: 13px;
 }
 .toolbar {
@@ -444,6 +450,24 @@ thead th {
 .assignment select {
   min-width: 120px;
 }
+.room-queue {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+.room-queue li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  border: 1px solid #d5dde5;
+  border-radius: 8px;
+  padding: 10px;
+}
+.overdue-section { margin: 18px 0; }
 .actions {
   display: flex;
   gap: 7px;
@@ -463,13 +487,13 @@ thead th {
 .empty {
   padding: 50px 20px;
   text-align: center;
-  color: #667b8b;
+  color: #536477;
   border: 1px dashed #c9d4de;
   border-radius: 6px;
 }
 .workspace-footer {
   font-size: 11px;
-  color: #8a98a5;
+  color: #586979;
   margin-top: 40px;
   padding-top: 16px;
   border-top: 1px solid #dce2e8;
@@ -561,6 +585,7 @@ thead th {
   }
   .sidebar nav {
     display: flex;
+    flex: initial;
     overflow: auto;
     margin-top: 12px;
   }
@@ -707,6 +732,23 @@ thead th {
 
 .print-only { display: none; }
 .stack { display: grid; gap: 12px; }
+.my-work { max-width: 900px; margin-inline: auto; }
+.work-action { min-height: 52px; min-width: 120px; font-size: 1.08rem; touch-action: manipulation; }
+.work-card { margin-block: 16px; }
+.work-card h3 { font-size: 1.3rem; }
+.work-card dl { display: grid; grid-template-columns: minmax(110px, 1fr) 2fr; gap: 8px; }
+.work-card dd { margin: 0; overflow-wrap: anywhere; }
+.work-state, .work-totals { font-weight: 700; font-size: 1.1rem; }
+.check-item { display: flex; align-items: center; gap: 12px; min-height: 48px; }
+.check-item input { width: 24px; height: 24px; flex: 0 0 auto; }
+.language-select { min-width: 130px; }
+.employee-recovery { width: 100%; box-sizing: border-box; }
+@media (max-width: 600px) {
+  .my-work .actions { display: grid; grid-template-columns: 1fr; }
+  .my-work .work-action { width: 100%; }
+  .work-card dl { grid-template-columns: 1fr; }
+  .work-card dd { margin-bottom: 8px; }
+}
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid #e2e8ee; }
 .notice p { margin: 6px 0; }
 .notice small { color: #586979; }
@@ -715,4 +757,46 @@ thead th {
   .print-only { display: block; }
   .screen-only, .room-card .control { display: none !important; }
   .room-card .preserve-lines { white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+
+
+/* Real-time housekeeping board: subtle progress changes, accessible reduced-motion fallback. */
+.hk-live { margin-block: 16px 24px; }
+.hk-live-heading,.hk-live-refresh,.hk-live-main,.hk-live-person-top { display:flex; justify-content:space-between; align-items:center; gap:14px; }
+.hk-live-heading { align-items:flex-start; flex-wrap:wrap; }
+.hk-live-heading h2 { margin:0 0 5px; }
+.hk-live-heading p { margin:0; }
+.hk-live-refresh { font-size:0.9rem; font-weight:600; color:#34506b; }
+.hk-live-dot { width:9px; height:9px; flex-shrink:0; border-radius:50%; background:#26986f; box-shadow:0 0 0 4px rgba(38,152,111,.12); }
+.hk-live-dot-stale { background:#b35c33; box-shadow:0 0 0 4px rgba(179,92,51,.1); }
+.hk-live-main { padding:18px 0 22px; }
+.hk-live-percent { display:flex; flex-direction:column; min-width:155px; }
+.hk-live-percent strong { font-size:clamp(2.2rem,5vw,3.4rem); line-height:1.05; font-variant-numeric:tabular-nums; color:#173c5c; }
+.hk-live-percent span { margin-top:5px; color:#4b657e; font-size:.9rem; }
+.hk-live-meter-wrap { flex:1; min-width:170px; }
+.hk-live-meter-wrap p { margin:8px 0 0; color:#4b657e; font-size:.92rem; }
+.hk-live-meter { height:17px; background:#e8edf2; border-radius:999px; overflow:hidden; border:1px solid #d6e1ea; }
+.hk-live-meter-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#3383a2,#289373); transition:width .7s ease; }
+.hk-live-stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:4px 0 22px; }
+.hk-live-stat { padding:12px; border:1px solid #dce5ec; background:#f7fafb; border-radius:9px; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.hk-live-stat span { color:#4e6577; font-size:.84rem; }
+.hk-live-stat strong { font-size:1.8rem; font-variant-numeric:tabular-nums; line-height:1.15; }
+.hk-inProgress { border-left:4px solid #277cbd; }
+.hk-awaitingInspection { border-left:4px solid #d49b24; }
+.hk-verified { border-left:4px solid #218268; }
+.hk-unassigned { border-left:4px solid #a35d47; }
+.hk-live-employee-list { display:grid; gap:12px; margin-bottom:22px; }
+.hk-live-person { border:1px solid #e0e7ec; border-radius:8px; padding:11px 13px; }
+.hk-live-person-top { margin-bottom:8px; }
+.hk-live-person-top span { color:#53677a; font-variant-numeric:tabular-nums; font-size:.9rem; }
+.hk-live-meter-small { height:11px; }
+.hk-live-person small { margin-top:8px; }
+@media (max-width:650px) {
+  .hk-live-main { align-items:stretch; flex-direction:column; }
+  .hk-live-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .hk-live-refresh { width:100%; justify-content:flex-start; }
+  .hk-live-percent { min-width:0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .hk-live-meter-fill { transition:none; }
 }

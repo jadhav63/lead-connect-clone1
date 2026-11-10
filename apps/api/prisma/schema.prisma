@@ -22,6 +22,7 @@ enum RoomStatus {
   INSPECTION
   MAINTENANCE
   OUT_OF_ORDER
+  UNKNOWN
 }
 
 enum OccupancyStatus {
@@ -29,6 +30,7 @@ enum OccupancyStatus {
   OCCUPIED
   ARRIVAL
   DEPARTURE
+  UNKNOWN
 }
 
 enum TaskStatus {
@@ -103,6 +105,11 @@ model Property {
   frontDeskTasks FrontDeskTask[]
   handovers      ShiftHandover[]
   refreshTokens  RefreshToken[]
+  staffDirectory  StaffDirectoryEntry[]
+  publicAreas     PublicArea[]
+  publicAreaTasks PublicAreaTask[]
+  accessGrants EmployeeAccessGrant[]
+  housekeepingRules HousekeepingRuleVersion[]
 
   @@map("properties")
 }
@@ -112,6 +119,7 @@ model User {
   name              String
   email             String               @unique
   passwordHash      String
+  sessionVersion    Int @default(0)
   phone             String?
   isActive          Boolean              @default(true)
   createdAt         DateTime             @default(now())
@@ -134,6 +142,15 @@ model User {
   handoversWritten  ShiftHandover[]      @relation("HandoverAuthor")
   handoversVerified ShiftHandover[]      @relation("HandoverVerifier")
   refreshTokens     RefreshToken[]
+  publicAreaDefaults PublicArea[] @relation("AreaDefaultAssignee")
+  publicAreaAssigned PublicAreaTask[] @relation("AreaAssignee")
+  publicAreaCreated PublicAreaTask[] @relation("AreaCreator")
+  publicAreaVerified PublicAreaTask[] @relation("AreaVerifier")
+  publicAreaCompleted PublicAreaTask[] @relation("AreaCompleter")
+  directoryProfiles StaffDirectoryEntry[]
+  accessGrants EmployeeAccessGrant[] @relation("GrantEmployee")
+  issuedAccessGrants EmployeeAccessGrant[] @relation("GrantIssuer")
+  housekeepingRuleEdits HousekeepingRuleVersion[]
 
   @@map("users")
 }
@@ -213,6 +230,7 @@ model MaintenanceTicket {
   id           String         @id @default(uuid())
   propertyId   String
   roomId       String?
+  publicAreaId String?
   title        String
   description  String
   priority     TicketPriority @default(MEDIUM)
@@ -231,6 +249,7 @@ model MaintenanceTicket {
   assignedTo   User?          @relation("TicketAssignee", fields: [assignedToId], references: [id])
   events       TicketEvent[]
   photos       Photo[]
+  publicArea   PublicArea? @relation(fields: [propertyId, publicAreaId], references: [propertyId, id], onDelete: Restrict)
 
   @@unique([propertyId, id])
   @@index([propertyId, status, priority])
@@ -390,4 +409,135 @@ model ShiftHandover {
 
   @@index([propertyId, businessDate, shift])
   @@map("shift_handovers")
+}
+
+model StaffDirectoryEntry {
+  id               String   @id @default(uuid())
+  propertyId       String
+  name             String
+  normalizedName   String
+  phone            String?
+  email            String?
+  department       String?
+  jobRole          String?
+  employmentStatus String   @default("PENDING_REVIEW")
+  appAccessEnabled Boolean  @default(false)
+  userId           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  property         Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  publicAreaDefaults PublicArea[]
+  publicAreaTasks PublicAreaTask[]
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, normalizedName])
+  @@unique([propertyId, id])
+  @@unique([propertyId, userId])
+  @@index([propertyId, employmentStatus])
+  @@map("staff_directory")
+}
+
+enum AccessGrantPurpose {
+  ACTIVATE
+  RECOVER
+}
+
+model EmployeeAccessGrant {
+  id String @id @default(uuid())
+  propertyId String
+  userId String
+  issuedById String
+  purpose AccessGrantPurpose
+  tokenHash String @unique
+  sessionVersion Int
+  expiresAt DateTime
+  consumedAt DateTime?
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  user User @relation("GrantEmployee", fields: [userId], references: [id], onDelete: Restrict)
+  issuedBy User @relation("GrantIssuer", fields: [issuedById], references: [id], onDelete: Restrict)
+  @@index([propertyId, userId, expiresAt])
+  @@map("employee_access_grants")
+}
+
+enum AreaFrequency {
+  ON_DEMAND
+  DAILY
+  TWICE_DAILY
+  WEEKLY
+}
+
+model PublicArea {
+  id String @id @default(uuid())
+  propertyId String
+  name String
+  location String
+  department String
+  frequency AreaFrequency @default(DAILY)
+  weeklyDay Int @default(1)
+  isActive Boolean @default(true)
+  sortOrder Int @default(0)
+  notes String?
+  checklist String[]
+  assignedToId String?
+  assignedStaffId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  assignedTo User? @relation("AreaDefaultAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedStaff StaffDirectoryEntry? @relation(fields: [propertyId, assignedStaffId], references: [propertyId, id], onDelete: Restrict)
+  tasks PublicAreaTask[]
+  tickets MaintenanceTicket[]
+  @@unique([propertyId, id])
+  @@unique([propertyId, name])
+  @@index([propertyId, isActive, sortOrder])
+  @@map("public_areas")
+}
+
+model PublicAreaTask {
+  id String @id @default(uuid())
+  propertyId String
+  areaId String
+  scheduledFor DateTime @db.Date
+  slot Int @default(1)
+  status TaskStatus @default(PENDING)
+  assignedToId String?
+  assignedStaffId String?
+  createdById String
+  verifiedById String?
+  completedById String?
+  checklist String[]
+  completedItems String[]
+  notes String?
+  startedAt DateTime?
+  completedAt DateTime?
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  area PublicArea @relation(fields: [propertyId, areaId], references: [propertyId, id], onDelete: Restrict)
+  assignedTo User? @relation("AreaAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
+  assignedStaff StaffDirectoryEntry? @relation(fields: [propertyId, assignedStaffId], references: [propertyId, id], onDelete: Restrict)
+  createdBy User @relation("AreaCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  verifiedBy User? @relation("AreaVerifier", fields: [verifiedById], references: [id], onDelete: Restrict)
+  completedBy User? @relation("AreaCompleter", fields: [completedById], references: [id], onDelete: Restrict)
+  @@unique([propertyId, areaId, scheduledFor, slot])
+  @@index([propertyId, scheduledFor, status])
+  @@index([propertyId, assignedToId, scheduledFor])
+  @@map("public_area_tasks")
+}
+
+model HousekeepingRuleVersion {
+  id String @id @default(uuid())
+  propertyId String
+  version Int
+  settings Json
+  createdById String
+  createdAt DateTime @default(now())
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, version])
+  @@index([propertyId, createdAt])
+  @@map("housekeeping_rule_versions")
 }

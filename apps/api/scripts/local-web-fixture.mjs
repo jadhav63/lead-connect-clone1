@@ -36,9 +36,13 @@ try {
     await prisma.shiftHandover.deleteMany({ where: scope });
     await prisma.cleaningTask.deleteMany({ where: scope });
     await prisma.maintenanceTicket.deleteMany({ where: scope });
+    await prisma.publicAreaTask.deleteMany({ where: scope });
+    await prisma.publicArea.deleteMany({ where: scope });
+    await prisma.staffDirectoryEntry.deleteMany({ where: scope });
     await prisma.auditLog.deleteMany({ where: scope });
     await prisma.notification.deleteMany({ where: scope });
     await prisma.refreshToken.deleteMany({ where: scope });
+    await prisma.employeeAccessGrant.deleteMany({where:scope});
     await prisma.room.deleteMany({ where: scope });
     await prisma.propertyMembership.deleteMany({ where: scope });
     await prisma.user.deleteMany({ where: { id: { in: users } } });
@@ -56,19 +60,27 @@ try {
         name: "Fictional Test Manager",
         email: randomUUID() + "@example.test",
         passwordHash,
-        memberships: { create: { propertyId: property.id, role: "ADMIN" } },
+        memberships: { create: { propertyId: property.id, role: "MANAGER" } },
       },
     });
+    const mobileManagerPassword = randomBytes(32).toString("hex");
+    const mobileManager = await prisma.user.create({data:{name:"Fictional Mobile Manager",email:randomUUID()+"@example.test",passwordHash:await argon2.hash(mobileManagerPassword),memberships:{create:{propertyId:property.id,role:"MANAGER"}}}});
+    const cleanerPassword = randomBytes(32).toString("hex");
     const cleaner = await prisma.user.create({
       data: {
         name: "Fictional Housekeeper",
         email: randomUUID() + "@example.test",
-        passwordHash,
+        passwordHash: await argon2.hash(cleanerPassword),
         memberships: {
           create: { propertyId: property.id, role: "HOUSEKEEPING" },
         },
       },
     });
+    const technicianPassword = randomBytes(32).toString("hex");
+    const technician = await prisma.user.create({ data: { name: "Test Technician", email: randomUUID()+"@example.test", passwordHash: await argon2.hash(technicianPassword), memberships: { create: { propertyId: property.id, role: "MAINTENANCE" } } } });
+    const frontDeskPassword = randomBytes(32).toString("hex");
+    const frontDesk = await prisma.user.create({ data: { name: "Test Front Desk", email: randomUUID()+"@example.test", passwordHash: await argon2.hash(frontDeskPassword), memberships: { create: { propertyId: property.id, role: "FRONT_DESK" } } } });
+    await prisma.room.createMany({ data: Array.from({length:59}, (_,i)=>({ propertyId:property.id, number:String(902+i), floor:2, status:"CLEAN", occupancyStatus:"VACANT" })) });
     const room = await prisma.room.create({
       data: {
         propertyId: property.id,
@@ -95,10 +107,14 @@ try {
       path,
       JSON.stringify({
         propertyId: property.id,
+        mobileManagerEmail: mobileManager.email, mobileManagerPassword,
         email: admin.email,
         password,
         code,
         cleanerId: cleaner.id,
+        cleanerEmail: cleaner.email, cleanerPassword,
+        technicianId: technician.id, technicianEmail: technician.email, technicianPassword,
+        frontDeskId: frontDesk.id, frontDeskEmail: frontDesk.email, frontDeskPassword, roomId: room.id,
       }),
       { mode: 0o600 },
     );

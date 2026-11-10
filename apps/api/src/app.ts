@@ -9,8 +9,15 @@ import { HttpError } from './lib/errors.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import operationsRouter from './routes/operations.js';
+import hotelSetupRouter from './routes/hotel-setup.js';
+import publicAreasRouter from './routes/public-areas.js';
+import employeeAccessRouter from './routes/employee-access.js';
+import myWorkRouter from './routes/my-work.js';
+import housekeepingRulesRouter from './routes/housekeeping-rules.js';
+import synxisRouter from './routes/synxis.js';
 import { databasePool, verifyDatabaseReadiness } from './lib/db.js';
 import { databaseFailureLog } from './lib/database-diagnostics.js';
+import { installWebApp } from './lib/web-app.js';
 export const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', proxyTrustSetting(env.NODE_ENV));
@@ -22,6 +29,7 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok', application: 'Lea
 let lastReadinessFailure = '', lastReadinessLogAt = 0;
 app.get('/api/ready', async (_req, res) => {
   res.set('Cache-Control', 'no-store');
+  if (app.locals.draining) { res.status(503).json({ status: 'unavailable' }); return; }
   try {
     await verifyDatabaseReadiness();
     if (lastReadinessFailure) console.info(JSON.stringify({ event: 'database_ready' }));
@@ -38,7 +46,14 @@ app.get('/api/ready', async (_req, res) => {
 app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api', hotelSetupRouter);
+app.use('/api', publicAreasRouter);
+app.use('/api', employeeAccessRouter);
+app.use('/api', myWorkRouter);
+app.use('/api', housekeepingRulesRouter);
+app.use('/api', synxisRouter);
 app.use('/api', operationsRouter);
+installWebApp(app, env.WEB_DIST_PATH);
 app.use((_req, res) => { res.status(404).json({ error: 'Not found' }); });
 const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   if (error instanceof ZodError) { res.status(400).json({ error: 'Invalid request', issues: error.issues }); return; }

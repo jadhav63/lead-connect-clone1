@@ -1,0 +1,39 @@
+# DRAFT: do not create/sync until JD approves costs, database identity and launch.
+# New service only. The existing lead-connect-api service is excluded.
+services:
+  - type: web
+    name: lead-connect-tgh-production
+    runtime: node
+    region: oregon
+    plan: standard # 1 CPU / 2 GB; legacy alias accepted by current schema
+    branch: release/production-readiness-20261108
+    autoDeployTrigger: 'off'
+    buildCommand: npm ci --prefix apps/api --include=dev && npm ci --prefix apps/web --include=dev && VITE_APP_ENV=production VITE_API_BASE= npm run build --prefix apps/web && npm run build --prefix apps/api
+    startCommand: cd apps/api && npm start
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: production
+      - key: WEB_DIST_PATH
+        value: ../web/dist
+      - key: AUTH_COOKIE_SAME_SITE
+        value: strict
+      - key: DATABASE_URL
+        sync: false
+      - key: EXPECTED_DATABASE_HOST
+        sync: false
+      - key: EXPECTED_DATABASE_NAME
+        value: leadconnect_production
+      - key: EXPECTED_DATABASE_USER
+        value: leadconnect_app
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: REFRESH_TOKEN_DAYS
+        value: "7"

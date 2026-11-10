@@ -1,0 +1,180 @@
+import { Router, type Request } from "express";
+import { z } from "zod";
+import { prisma } from "../lib/db.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { HttpError } from "../lib/errors.js";
+import { env } from "../config/env.js";
+import { revokeEmployeeSessions } from '../services/employee-access.js';
+// @ts-expect-error Shared standalone fingerprint helper for launch-time CSV validation.
+import { roomMapFingerprint } from "../../scripts/room-map-fingerprint.mjs";
+
+const router = Router();
+const management = requireRole("ADMIN", "MANAGER");
+const code = "58835";
+const roomTypes = ["AC1", "AC2", "AC3", "RM1", "RM2", "RM3", "SU1"] as const;
+const counts: Record<string, number> = { AC1: 1, AC2: 2, AC3: 1, RM1: 5, RM2: 42, RM3: 8, SU1: 1 };
+const roomInput = z.object({
+  number: z.string().regex(/^\d{3}$/),
+  floor: z.number().int().min(1).max(2),
+  roomType: z.enum(roomTypes),
+  initialStatus: z.enum(["CLEAN", "DIRTY", "IN_PROGRESS", "INSPECTION", "MAINTENANCE", "OUT_OF_ORDER"]).optional(),
+  initialOccupancyStatus: z.enum(["VACANT", "OCCUPIED", "ARRIVAL", "DEPARTURE"]).optional(),
+}).strict();
+const inventoryInput = z.object({ propertyCode: z.literal("58835"), rooms: z.array(roomInput).length(60), approvalReference: z.string().optional() }).strict();
+const nullableText = z.string().trim().max(200).nullable().optional();
+const staffInput = z.object({
+  name: z.string().trim().min(2).max(200),
+  phone: z.string().trim().regex(/^\d{10}$/).nullable().optional(),
+  email: z.union([z.email(), z.literal(""), z.null()]).optional(),
+  department: z.enum(["Management", "Front Desk", "Housekeeping", "Laundry", "Maintenance", "Breakfast"]).nullable().optional(),
+  jobRole: nullableText,
+  employmentStatus: z.enum(["PENDING_REVIEW", "ACTIVE", "INACTIVE"]).optional(),
+}).strict();
+function normalizedName(name: string) { return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US"); }
+function requestProperty(req: Request) { return req.auth!.propertyId; }
+function requireImportGate() {
+  if (env.TGH_IMPORT_ENABLED !== "true" || env.APP_ENV !== "production")
+    throw new HttpError(403, "Import is disabled until JD approves production activation");
+  if (!env.TGH_APPROVED_ROOM_INVENTORY_SHA256)
+    throw new HttpError(403, "Approved room inventory fingerprint is not configured");
+}
+async function confirmProperty(req: Request, supplied: string) {
+  const p = await prisma.property.findUnique({ where: { id: requestProperty(req) }, select: { code: true } });
+  if (supplied !== code || p?.code !== code) throw new HttpError(403, "Wrong property; import refused");
+}
+function checkRoomRows(rooms: z.infer<typeof roomInput>[]) {
+  const unique = new Set(rooms.map(r => r.number));
+  if (unique.size !== 60) throw new HttpError(400, "Duplicate or missing rooms");
+  for (const type of roomTypes) if (rooms.filter(r => r.roomType === type).length !== counts[type])
+    throw new HttpError(400, "Room type totals must match the approved 60-room inventory");
+  for (const r of rooms) if (Number(r.number[0]) !== r.floor)
+    throw new HttpError(400, "Room floor does not match room number");
+}
+async function inventoryPreview(req: Request, body: z.infer<typeof inventoryInput>) {
+  await confirmProperty(req, body.propertyCode);
+  checkRoomRows(body.rooms);
+  const fingerprint = roomMapFingerprint(body.rooms);
+  const existing = await prisma.room.findMany({ where: { propertyId: requestProperty(req) }, select: { number: true, roomType: true, floor: true } });
+  const map = new Map(existing.map(r => [r.number, r]));
+  const conflicts = body.rooms.filter(r => map.has(r.number) && (map.get(r.number)!.roomType !== r.roomType || map.get(r.number)!.floor !== r.floor)).map(r => r.number);
+  const incoming = new Set(body.rooms.map(r => r.number));
+  const unexpectedExisting = existing.filter(r => !incoming.has(r.number)).map(r => r.number);
+  const missingInitialStatus = body.rooms.filter(r => !r.initialStatus || !r.initialOccupancyStatus).map(r => r.number);
+  const approvedInventoryMatch = Boolean(env.TGH_APPROVED_ROOM_INVENTORY_SHA256 && fingerprint === env.TGH_APPROVED_ROOM_INVENTORY_SHA256);
+  const canApply = env.APP_ENV === "production" && env.TGH_IMPORT_ENABLED === "true" && approvedInventoryMatch && !conflicts.length && !unexpectedExisting.length && !missingInitialStatus.length;
+  return { total: 60, toCreate: body.rooms.filter(r => !map.has(r.number)).length, alreadyPresent: body.rooms.filter(r => map.has(r.number)).length, conflicts, unexpectedExisting, missingInitialStatus, inventoryFingerprint: fingerprint, approvedInventoryMatch, canApply, databaseModified: false };
+}
+router.post("/room-inventory/preview", requireAuth, management, async (req, res) => {
+  const body = inventoryInput.parse(req.body);
+  res.json(await inventoryPreview(req, body));
+});
+// Read-only readiness; property creation/bootstrap remains a separate owner-controlled step.
+router.get('/property-onboarding', requireAuth, management, async (req,res)=>{
+  const property=await prisma.property.findUniqueOrThrow({where:{id:requestProperty(req)}});
+  const rooms=await prisma.room.findMany({where:{propertyId:property.id},select:{roomType:true,floor:true}});
+  const actual=Object.fromEntries(roomTypes.map(type=>[type,rooms.filter(r=>r.roomType===type).length]));
+  res.json({propertyCode:property.code,realHotel:property.code===code,
+    identityVerified:property.code===code && property.name==='Tombstone Grand Hotel, a Baymont by Wyndham' && property.timezone==='America/Phoenix' && property.address==='580 W Randolph Way, Tombstone, AZ 85638',
+    timezone:property.timezone,guestRooms:rooms.length,expectedRoomTypes:counts,actualRoomTypes:actual,
+    roomTotalsMatch:rooms.length===60 && roomTypes.every(t=>actual[t]===counts[t]),
+    approvedMapConfigured:Boolean(env.TGH_APPROVED_ROOM_INVENTORY_SHA256),
+    importEnabled:property.code===code && env.APP_ENV==='production' && env.TGH_IMPORT_ENABLED==='true',
+    sourceStatusConfirmationRequired:true,createsProperty:false,createsLoginAccounts:false});
+});
+router.post("/room-inventory/apply", requireAuth, management, async (req, res) => {
+  requireImportGate();
+  const body = inventoryInput.parse(req.body);
+  if (!body.approvalReference || !/^JD-APPROVED-[A-Z0-9-]{6,}$/.test(body.approvalReference)) throw new HttpError(403, "JD approval reference required");
+  const preview = await inventoryPreview(req, body);
+  if (!preview.approvedInventoryMatch) throw new HttpError(409, "Room inventory does not match the independently approved fingerprint");
+  if (preview.conflicts.length || preview.unexpectedExisting.length || preview.missingInitialStatus.length) throw new HttpError(409, "Resolve inventory conflicts, extra existing rooms, and current status confirmations before import");
+  const inserted = await prisma.$transaction(async tx => {
+    const existing = await tx.room.findMany({ where: { propertyId: requestProperty(req) }, select: { number: true, roomType: true, floor: true } });
+    const map = new Map(existing.map(r => [r.number, r]));
+    const incoming = new Set(body.rooms.map(r => r.number));
+    if (existing.some(r => !incoming.has(r.number))) throw new HttpError(409, "Existing inventory contains rooms outside the approved inventory");
+    if (body.rooms.some(r => map.has(r.number) && (map.get(r.number)!.roomType !== r.roomType || map.get(r.number)!.floor !== r.floor))) throw new HttpError(409, "Room inventory conflict");
+    const rows = body.rooms.filter(r => !map.has(r.number));
+    if (rows.length) await tx.room.createMany({ data: rows.map(r => ({
+      propertyId: requestProperty(req), number: r.number, floor: r.floor, roomType: r.roomType,
+      status: r.initialStatus!, occupancyStatus: r.initialOccupancyStatus!
+    })) });
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "CREATE", entityType: "RoomInventoryImport", entityId: requestProperty(req), after: { created: rows.length, approvalReference: body.approvalReference } } });
+    return rows.length;
+  }, { isolationLevel: "Serializable" });
+  res.json({ created: inserted, alreadyPresent: 60 - inserted });
+});
+router.get("/staff-directory", requireAuth, management, async (req, res) => {
+  res.json(await prisma.staffDirectoryEntry.findMany({ where: { propertyId: requestProperty(req) }, orderBy: { name: "asc" } }));
+});
+router.post("/staff-directory", requireAuth, management, async (req, res) => {
+  const data = staffInput.parse(req.body);
+  const row = await prisma.$transaction(async tx => {
+    const created = await tx.staffDirectoryEntry.create({ data: {
+      propertyId: requestProperty(req), name: data.name, normalizedName: normalizedName(data.name),
+      email: data.email || null, phone: data.phone || null, department: data.department || null,
+      jobRole: data.jobRole || null, employmentStatus: data.employmentStatus ?? "PENDING_REVIEW", appAccessEnabled: false
+    }});
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "CREATE", entityType: "StaffDirectoryEntry", entityId: created.id, after: { changedFields: ["name", "phone", "email", "department", "jobRole", "employmentStatus"], appAccessEnabled: false } } });
+    return created;
+  });
+  res.status(201).json(row);
+});
+router.patch("/staff-directory/:entryId", requireAuth, management, async (req, res) => {
+  const entryId = z.uuid().parse(req.params.entryId);
+  const data = staffInput.partial().parse(req.body);
+  const updated = await prisma.$transaction(async tx => {
+    const before = await tx.staffDirectoryEntry.findFirst({ where: { id: entryId, propertyId: requestProperty(req) }, select: { id: true, userId:true } });
+    if (!before) throw new HttpError(404, "Staff directory entry not found");
+    if(before.userId && data.employmentStatus!==undefined && data.employmentStatus!=='ACTIVE' && !req.auth!.roles.includes('ADMIN') && await tx.propertyMembership.findFirst({where:{propertyId:requestProperty(req),userId:before.userId,role:{in:['ADMIN','MANAGER']}}}))throw new HttpError(403,'Administrator required to deactivate manager access');
+    const saved = await tx.staffDirectoryEntry.update({ where: { id: entryId }, data: {
+      ...(data.name !== undefined ? { name: data.name, normalizedName: normalizedName(data.name) } : {}),
+      ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
+      ...(data.email !== undefined ? { email: data.email || null } : {}),
+      ...(data.department !== undefined ? { department: data.department || null } : {}),
+      ...(data.jobRole !== undefined ? { jobRole: data.jobRole || null } : {}),
+      ...(data.employmentStatus !== undefined ? { employmentStatus: data.employmentStatus } : {})
+    }});
+    if(before.userId && data.employmentStatus!==undefined && data.employmentStatus!=='ACTIVE'){
+      await revokeEmployeeSessions(tx,before.userId);
+      await tx.propertyMembership.updateMany({where:{propertyId:requestProperty(req),userId:before.userId},data:{isActive:false}});
+      await tx.staffDirectoryEntry.update({where:{id:entryId},data:{appAccessEnabled:false}});
+      saved.appAccessEnabled=false;
+    }
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "UPDATE", entityType: "StaffDirectoryEntry", entityId: saved.id, after: { changedFields: Object.keys(data) } } });
+    return saved;
+  });
+  res.json(updated);
+});
+const staffBatch = z.object({ propertyCode: z.literal("58835"), records: z.array(staffInput).min(1).max(100), approvalReference: z.string().optional() }).strict();
+async function staffPreview(req: Request, body: z.infer<typeof staffBatch>) {
+  await confirmProperty(req, body.propertyCode);
+  const names = body.records.map(r => normalizedName(r.name));
+  if (new Set(names).size !== names.length) throw new HttpError(400, "Duplicate staff names in import file");
+  const existing = await prisma.staffDirectoryEntry.findMany({ where: { propertyId: requestProperty(req) }, select: { normalizedName: true } });
+  const found = new Set(existing.map(x => x.normalizedName));
+  return { total: names.length, toCreate: names.filter(n => !found.has(n)).length, alreadyPresent: names.filter(n => found.has(n)).length, missingEmails: body.records.filter(r => !r.email).length, allAppAccessDisabled: true, databaseModified: false };
+}
+router.post("/staff-directory/import-preview", requireAuth, management, async (req, res) => {
+  const body = staffBatch.parse(req.body);
+  res.json(await staffPreview(req, body));
+});
+router.post("/staff-directory/import", requireAuth, management, async (req, res) => {
+  requireImportGate();
+  const body = staffBatch.parse(req.body);
+  if (!body.approvalReference || !/^JD-APPROVED-[A-Z0-9-]{6,}$/.test(body.approvalReference)) throw new HttpError(403, "JD approval reference required");
+  await staffPreview(req, body);
+  const created = await prisma.$transaction(async tx => {
+    const existing = new Set((await tx.staffDirectoryEntry.findMany({ where: { propertyId: requestProperty(req) }, select: { normalizedName: true } })).map(x => x.normalizedName));
+    const rows = body.records.filter(r => !existing.has(normalizedName(r.name)));
+    if (rows.length) await tx.staffDirectoryEntry.createMany({ data: rows.map(r => ({
+      propertyId: requestProperty(req), name: r.name, normalizedName: normalizedName(r.name),
+      email: r.email || null, phone: r.phone || null, department: r.department || null,
+      jobRole: r.jobRole || null, employmentStatus: "PENDING_REVIEW", appAccessEnabled: false
+    })) });
+    await tx.auditLog.create({ data: { propertyId: requestProperty(req), actorId: req.auth!.userId, action: "CREATE", entityType: "StaffDirectoryImport", entityId: requestProperty(req), after: { created: rows.length, approvalReference: body.approvalReference } } });
+    return rows.length;
+  }, { isolationLevel: "Serializable" });
+  res.json({ created, appAccessEnabled: false });
+});
+export default router;

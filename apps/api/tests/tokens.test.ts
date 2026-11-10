@@ -6,7 +6,7 @@ import { env } from '../src/config/env.js';
 describe('token security', () => {
   it('scopes access tokens to a user and property and expires them in 15 minutes', () => {
     const token = accessToken('test-user', 'test-property');
-    expect(verifyAccess(token)).toEqual({ userId: 'test-user', propertyId: 'test-property' });
+    expect(verifyAccess(token)).toEqual({ userId: 'test-user', propertyId: 'test-property', sessionVersion:0 });
     const claims = jwt.decode(token) as jwt.JwtPayload;
     expect(claims.exp! - claims.iat!).toBe(900);
   });
