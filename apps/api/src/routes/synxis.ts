@@ -68,7 +68,7 @@ async function inspect(propertyId:string,date:string,base64:string){
       cleaningType==='ARRIVAL_TOUCHUP'?rules.minutes.arrivalTouchup:0;
     return {number:r.number,roomType:r.roomType,hkStatus:r.hkStatus,occupancyStatus:r.occupancyStatus,
       guestStatus:r.guestStatus,pet:r.pet,ooo:r.outOfOrder,ooi:r.outOfInventory,cleaningType,minutes,
-      issues,roomId:existing?.id??null};
+      issues,roomId:existing?.id??null,roomVersion:existing?.version??null};
   });
   if(rows.some(r=>r.issues.some(s=>!s.includes('OOO/OOI'))))warnings.push('Some room rows require review');
   const candidates=rows.filter(r=>r.cleaningType&&!r.ooo&&!r.ooi);
@@ -105,7 +105,7 @@ router.post('/housekeeping/synxis/apply',async(req,res)=>{
     for(const r of review.rows){
       if(!r.roomId || r.ooo||r.ooi)continue;
       const status=r.hkStatus;
-      const changed=await tx.room.updateMany({where:{id:r.roomId,propertyId,isActive:true},
+      const changed=await tx.room.updateMany({where:{id:r.roomId,propertyId,isActive:true,version:r.roomVersion??-1},
         data:{status,occupancyStatus:r.occupancyStatus,version:{increment:1}}});
       if(changed.count!==1)throw new HttpError(409,'Room changed while importing');
       updated++;
