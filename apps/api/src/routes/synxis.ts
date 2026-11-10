@@ -131,7 +131,11 @@ async function autoPreview(propertyId:string,date:string){
     status:{in:['PENDING','IN_PROGRESS']}},include:{room:{select:{number:true,floor:true}}}});
   const members=await prisma.propertyMembership.findMany({where:{propertyId,role:'HOUSEKEEPING',isActive:true,
     user:{isActive:true,deletedAt:null}},select:{user:{select:{id:true,name:true}}}});
-  const staff=[...new Map(members.map(m=>[m.user.id,m.user])).values()];
+  const people=[...new Map(members.map(m=>[m.user.id,m.user])).values()];
+  const directories=await prisma.staffDirectoryEntry.findMany({where:{propertyId,userId:{in:people.map(p=>p.id)}},
+    select:{userId:true,department:true}});
+  const departments=new Map(directories.map(d=>[d.userId,d.department]));
+  const staff=people.map(p=>({...p,department:departments.get(p.id)??null}));
   const planTasks:PlanTask[]=tasks.map(t=>({id:t.id,roomNumber:t.room.number,floor:t.room.floor,
     cleaningType:t.cleaningType,notes:t.instructions,assignedToId:t.assignedToId,status:t.status}));
   const result=buildAssignmentPlan(planTasks,staff,rules);
