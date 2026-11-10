@@ -19,7 +19,7 @@ function WorkCard({task,kind,busy,locked,timezone,run,onReport}:{task:WorkTask;k
   </article>;
 }
 export function MyWorkToday(){
-  const {t,language}=useLanguage();const [reportRoom,setReportRoom]=useState<string|null>(null),[work,setWork]=useState<Work|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[uncertain,setUncertain]=useState(false),[stale,setStale]=useState(false),[message,setMessage]=useState(''),[refreshed,setRefreshed]=useState<Date|null>(null);
+  const {t,language}=useLanguage();const [reportRequest,setReportRequest]=useState<{number:string;requestId:number}|null>(null),[work,setWork]=useState<Work|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[uncertain,setUncertain]=useState(false),[stale,setStale]=useState(false),[message,setMessage]=useState(''),[refreshed,setRefreshed]=useState<Date|null>(null);
   const sequence=useRef(0),mounted=useRef(true),busyRef=useRef(false);
   const load=useCallback(async(explicit=false)=>{
     const n=++sequence.current;
@@ -45,8 +45,8 @@ export function MyWorkToday(){
     <button className="secondary work-action" disabled={busy||loading} onClick={()=>{setMessage('');void load(true);}}>{t('Refresh work')}</button>
     {message&&<p role={uncertain?'alert':'status'} className={uncertain?'error':'success'}>{t(message)}</p>}{stale&&<p role="alert">{t('Could not refresh work. Your previous view may be out of date.')}</p>}
     {loading&&<p role="status">{t('Loading today’s work…')}</p>}{refreshed&&<p>{t('Last refreshed')}: {refreshed.toLocaleTimeString(language==='es'?'es-US':'en-US')}</p>}
-    {work&&(['room','area'] as const).map(kind=>{const tasks=kind==='room'?work.rooms:work.areas;const completed=tasks.filter(x=>['COMPLETED','VERIFIED'].includes(x.status)).length;const remaining=tasks.filter(x=>['PENDING','IN_PROGRESS'].includes(x.status)).length;return <section key={kind} aria-label={t(kind==='room'?'Guest rooms':'Public areas')}><h2>{t(kind==='room'?'Guest rooms':'Public areas')}</h2><p className="work-totals">{t('Completed')}: {completed} · {t('Remaining')}: {remaining}</p>{!tasks.length&&<p>{t(kind==='room'?'No guest rooms assigned today.':'No public areas assigned today.')}</p>}{tasks.map(task=><WorkCard key={task.id+task.status} task={task} kind={kind} busy={busy} locked={uncertain||stale} timezone={work.property.timezone} run={run} onReport={setReportRoom}/>)}</section>;})}
-    <MaintenanceReporter roomNumber={reportRoom}/>
+    {work&&(['room','area'] as const).map(kind=>{const tasks=kind==='room'?work.rooms:work.areas;const completed=tasks.filter(x=>['COMPLETED','VERIFIED'].includes(x.status)).length;const remaining=tasks.filter(x=>['PENDING','IN_PROGRESS'].includes(x.status)).length;return <section key={kind} aria-label={t(kind==='room'?'Guest rooms':'Public areas')}><h2>{t(kind==='room'?'Guest rooms':'Public areas')}</h2><p className="work-totals">{t('Completed')}: {completed} · {t('Remaining')}: {remaining}</p>{!tasks.length&&<p>{t(kind==='room'?'No guest rooms assigned today.':'No public areas assigned today.')}</p>}{tasks.map(task=><WorkCard key={task.id+task.status} task={task} kind={kind} busy={busy} locked={uncertain||stale} timezone={work.property.timezone} run={run} onReport={number=>setReportRequest(previous=>({number,requestId:(previous?.requestId??0)+1}))}/>)}</section>;})}
+    <MaintenanceReporter reportRequest={reportRequest}/>
     <p>{t('Contact your manager to change assignments or request inspection.')}</p>
   </section>;
 }
