@@ -5,6 +5,7 @@ import { HotelStaffDirectory, RoomInventoryPreview } from "./HotelSetup";
 import { PublicAreas, PublicAreaReport } from "./PublicAreas";
 import { PropertyOnboarding } from "./PropertyOnboarding";
 import { HousekeepingRulesManager } from "./HousekeepingRulesManager";
+import { SynxisHousekeepingPanel } from "./SynxisHousekeepingPanel";
 import {MyWorkToday} from './MyWorkToday';
 import {EmployeeRecovery} from './EmployeeRecovery';
 import {EmployeeAccessPanel} from './EmployeeAccessPanel';
@@ -873,6 +874,7 @@ function HotelApp() {
         )}
         {page === "Housekeeping" && (
           <>
+            {manager && <SynxisHousekeepingPanel date={day} onApplied={()=>{void load();}} />}
             {desk && <section className="panel" aria-labelledby="assignment-queue-title">
               <h2 id="assignment-queue-title">Dirty checkout and stayover queue · {day}</h2>
               {!dirtyCheckoutStayoverRooms.length ? <p>No dirty checkout or stayover rooms are waiting.</p> : <ul className="room-queue">
