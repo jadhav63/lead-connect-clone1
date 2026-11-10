@@ -10,6 +10,6 @@ export function LanguageProvider({children}:{children:ReactNode}){
   return <Context.Provider value={{language,setLanguage,t:(key)=>language==='es'?(es[key]??key):key}}>{children}</Context.Provider>;
 }
 export const useLanguage=()=>useContext(Context);
-export function LanguageSelect(){const {language,setLanguage,t}=useLanguage();return <label className="control language-select">{t('Language')}<select value={language} onChange={e=>setLanguage(e.target.value as Language)}><option value="en">English</option><option value="es">Español</option></select></label>;}
+export function LanguageSelect(){const {language,setLanguage,t}=useLanguage();return <label className="control language-select">{t('Language')}<select aria-label={t('Language')} value={language} onChange={e=>setLanguage(e.target.value as Language)}><option value="en">English</option><option value="es">Español</option></select></label>;}
 export function rememberedHotel(){try{return localStorage.getItem('lead-connect-hotel')?.slice(0,64)??'';}catch{return '';}}
 export function rememberHotel(code:string){try{localStorage.setItem('lead-connect-hotel',code.trim().slice(0,64));}catch{}}
