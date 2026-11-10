@@ -6,7 +6,7 @@ import type {Prisma} from '../generated/prisma/client.js';
 import {requireAuth,requireRole} from '../middleware/auth.js';
 import {HttpError} from '../lib/errors.js';
 import {issueAccessGrant,revokeEmployeeSessions,unusablePasswordHash} from '../services/employee-access.js';
-const router=Router();router.use(requireAuth,requireRole('ADMIN','MANAGER'));
+const router=Router();router.use('/employee-access',requireAuth,requireRole('ADMIN','MANAGER'));
 const role=z.enum(['HOUSEKEEPING','MAINTENANCE','FRONT_DESK','MANAGER']);
 const serial={isolationLevel:'Serializable' as const};
 const grantLimiter=rateLimit({windowMs:15*60*1000,limit:30,standardHeaders:'draft-8',legacyHeaders:false});
