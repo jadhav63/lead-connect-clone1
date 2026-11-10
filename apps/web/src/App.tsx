@@ -1427,7 +1427,7 @@ export default function App() {
                   <article className="stat"><small>Estimated completed minutes</small><strong>{data.totals?.estimatedCompletedMinutes ?? 0}</strong></article>
                   <article className="stat"><small>Tracked elapsed minutes</small><strong>{data.totals?.trackedElapsedMinutes ?? 0}</strong></article>
                 </div>
-                <section className="panel">
+                <section className="panel" aria-label="Guest-room monthly report">
                   <h2>Monthly employee cleaning totals · {data.month ?? reportMonth}</h2>
                   <p>Estimates use the default service times. Tracked elapsed time runs from Start to Complete and does not subtract breaks or pauses.</p>
                   <div className="table-wrap">

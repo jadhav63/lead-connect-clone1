@@ -59,7 +59,7 @@ test('public areas stay separate while a manager and cleaner complete, verify an
   await expect(page.getByText(/Fictional public lamp/)).toBeVisible();
   await page.getByRole('button',{name:'History for Lobby / Front Desk'}).click();
   await expect(page.getByRole('heading',{name:'Cleaning history · Lobby / Front Desk'})).toBeVisible();
-  await go(page,'Dashboard');await expect(page.locator('.metric').filter({hasText:/^Rooms/})).toContainText('60');
+  await go(page,'Dashboard');await expect(page.locator('.stat').filter({hasText:/^Rooms/})).toContainText('60');
   await go(page,'Employees');await page.getByLabel('Full name',{exact:true}).fill('Fictional directory only');
   await page.getByRole('button',{name:'Add to directory',exact:true}).click();
   await expect(page.getByRole('row').filter({hasText:'Fictional directory only'})).toContainText('Disabled');
@@ -157,7 +157,7 @@ test('manager, housekeeper, maintenance and front desk complete the daily workfl
   await go(page, 'Reports');
   await expect(page.getByText('901', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Monthly report' }).click();
-  await expect(page.getByText('Fictional Housekeeper', { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', {name:'Guest-room monthly report'}).getByText('Fictional Housekeeper', { exact: true })).toBeVisible();
 });
 test('desktop, tablet and phone layouts, keyboard access, print and outage recovery', async ({ page }) => {
   await signIn(page);
