@@ -14,7 +14,6 @@ router.use('/housekeeping/synxis',requireAuth,manager);
 router.use('/housekeeping/auto-assign',requireAuth,manager);
 const businessDate=z.iso.date();
 const pdfBody=z.object({businessDate,pdfBase64:z.string().min(100).max(1150000)}).strict();
-const stateCounts={};
 function parsePdf(raw:string){
   if(!/^[A-Za-z0-9+/]+={0,2}$/.test(raw))throw new HttpError(400,'Invalid PDF encoding');
   return extractSynxisPdf(Buffer.from(raw,'base64'));
@@ -114,7 +113,7 @@ router.post('/housekeeping/synxis/apply',async(req,res)=>{
         const existing=await tx.cleaningTask.count({where:{propertyId,roomId:r.roomId,scheduledFor:date}});
         if(existing)throw new HttpError(409,'Existing cleaning assignment — import cancelled');
         await tx.cleaningTask.create({data:{propertyId,roomId:r.roomId,createdById:req.auth!.userId,
-          scheduledFor:date,cleaningType:r.cleaningType,notes:undefined,
+          scheduledFor:date,cleaningType:r.cleaningType,
           instructions:r.pet?'Pet In Room — follow pet-room cleaning procedure':undefined}});
         created++;
       }
