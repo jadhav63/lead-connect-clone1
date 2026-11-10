@@ -79,7 +79,7 @@ export function extractSynxisPdf(pdf:Buffer){
   const byNumber=new Map<string,number>();
   for(const r of rooms)byNumber.set(r.number,(byNumber.get(r.number)||0)+1);
   const duplicates=[...byNumber].filter(([,count])=>count>1).map(([num])=>num);
-  const footerDates=streams.flatMap(stream=>[...stream.matchAll(/\((\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}:\d{2}\s+[AP]M\)\s*Tj/g)].map(m=>m[1]));
+  const footerDates=streams.flatMap(stream=>[...stream.matchAll(/\((\d{2}\/\d{2}\/\d{4})\s+\d{2}:\d{2}:\d{2}\s+[AP]M\b/g)].map(m=>m[1]));
   const reportDate=footerDates.length===0?null:(()=>{
     const [mm,dd,yyyy]=footerDates[0].split('/');return yyyy+'-'+mm+'-'+dd;
   })();
