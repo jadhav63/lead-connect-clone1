@@ -1299,6 +1299,17 @@ function HotelApp() {
         )}
         {page === "Employees" && (
           <>
+            {manager && <section className="panel" aria-label="Employee role quick guide">
+              <h2>Employee roles & access</h2>
+              <p>Use the verified staff profile and <strong>Employee access management</strong> below to issue a private activation code. Employees set their own password; never share one hotel-wide login.</p>
+              <div className="hk-live-stats" aria-label="Role access overview">
+                <div className="hk-live-stat"><strong>Housekeeping</strong><span>My Work Today, report repairs, notifications, own account</span></div>
+                <div className="hk-live-stat"><strong>Maintenance</strong><span>Assigned repair tickets, maintenance updates, notifications</span></div>
+                <div className="hk-live-stat"><strong>Front Desk</strong><span>Room status, shift tasks, maintenance reporting, operations dashboard</span></div>
+                <div className="hk-live-stat"><strong>Manager</strong><span>Staff assignments, rules, reporting and oversight</span></div>
+                <div className="hk-live-stat"><strong>Administrator</strong><span>Authorized management controls and manager access approvals</span></div>
+              </div>
+            </section>}
             {manager && <HotelStaffDirectory />}
             {manager && <EmployeeAccessPanel administrator={identity.roles.includes('ADMIN')}/>}
             {manager && (
