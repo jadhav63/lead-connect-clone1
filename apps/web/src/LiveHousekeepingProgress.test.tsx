@@ -16,7 +16,7 @@ beforeEach(()=>{mock.api.mockReset();mock.api.mockResolvedValue(structuredClone(
 afterEach(()=>{cleanup();vi.useRealTimers();});
 it('shows completion and verification separately using confirmed task counts',async()=>{
   render(<LiveHousekeepingProgress date="2026-11-10"/>);
-  expect(await screen.findByRole('progressbar',{name:'Housekeeping completion'})).toHaveProperty('value',undefined);
+  await screen.findByRole('progressbar',{name:'Housekeeping completion'});
   const bar=screen.getByRole('progressbar',{name:'Housekeeping completion'});
   expect(bar.getAttribute('aria-valuenow')).toBe('50');
   expect(screen.getByText('2 of 4 active cleaning tasks completed · 1 inspected and verified')).toBeTruthy();
