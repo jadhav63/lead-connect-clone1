@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {api} from './api';
 import {useLanguage} from './mobile-language';
 
@@ -33,7 +33,7 @@ export function MaintenanceReporter({reportRequest}:{reportRequest:{number:strin
   const locationId=location.slice(location.indexOf(':')+1);
   const sameRoom=places?.rooms.find(r=>r.id===locationId);
   const openForRoom=tickets.filter(ticket=>ticket.status!=='CLOSED'&&sameRoom&&ticket.room?.number===sameRoom.number);
-  async function submit(e:React.FormEvent<HTMLFormElement>){
+  async function submit(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(busy)return;
     setBusy(true);setMessage('');setError('');
     try{
